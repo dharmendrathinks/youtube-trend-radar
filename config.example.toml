@@ -40,13 +40,14 @@ watched_repositories = [
   "huggingface/huggingface_hub",
 ]
 exploration_queries = [
-  'created:>{since} archived:false fork:false (topic:ai-agent OR topic:llm-agent OR topic:coding-agent)',
-  'created:>{since} archived:false fork:false ("MCP" OR "model context protocol") in:name,description,readme',
-  'created:>{since} archived:false fork:false ("AI IDE" OR "coding assistant" OR "developer tool") in:name,description,readme',
-  'created:>{since} archived:false fork:false ("local LLM" OR "local AI" OR "inference") in:name,description,readme',
+  'topic:ai-agent created:>{since} archived:false fork:false',
+  'topic:coding-agent created:>{since} archived:false fork:false',
+  'topic:model-context-protocol created:>{since} archived:false fork:false',
+  'topic:local-llm created:>{since} archived:false fork:false',
 ]
 exploration_per_query = 15
 release_limit_per_repository = 5
+include_prereleases = false
 
 [hacker_news]
 feeds = ["newstories", "showstories", "topstories"]
@@ -105,7 +106,7 @@ feature_anchors = [
 OpenAI = ["openai", "codex", "chatgpt"]
 Anthropic = ["anthropic", "claude", "claude code"]
 Google = ["google ai", "gemini", "gemini cli", "google ai studio"]
-GitHub = ["github", "github copilot", "copilot"]
+GitHub = ["github copilot", "copilot"]
 Cursor = ["cursor", "cursor ide"]
 HuggingFace = ["hugging face", "huggingface"]
 Ollama = ["ollama"]

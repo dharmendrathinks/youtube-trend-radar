@@ -51,4 +51,4 @@ def test_mocked_end_to_end_scan_isolates_provider_failure(tmp_path: Path, monkey
     assert '"discovery_priority"' in content
     assert '"github_watched"' in content
     assert '"status": "failed"' in content
-
+    assert '"status": "partial"' in content

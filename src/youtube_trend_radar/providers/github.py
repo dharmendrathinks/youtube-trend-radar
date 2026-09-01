@@ -56,6 +56,7 @@ def collect_watched(config: AppConfig, client: CachedHttpClient, now: datetime) 
     cache_states: list[tuple[str, datetime]] = []
     repositories = [str(value) for value in config.github.get("watched_repositories", [])]
     release_limit = int(config.github.get("release_limit_per_repository", 5))
+    include_prereleases = bool(config.github.get("include_prereleases", False))
     cutoff = now - timedelta(days=config.lookback_days)
 
     for full_name in repositories:
@@ -75,17 +76,22 @@ def collect_watched(config: AppConfig, client: CachedHttpClient, now: datetime) 
             )
             cache_states.append((releases_payload.cache_state, releases_payload.fetched_at))
             for release in releases_payload.json():
+                if release.get("draft") or (release.get("prerelease") and not include_prereleases):
+                    continue
                 published = parse_datetime(release.get("published_at") or release.get("created_at"))
                 if published and published < cutoff:
                     continue
                 tag = str(release.get("tag_name") or release.get("id"))
+                release_name = clean_text(release.get("name") or tag, limit=240)
+                if full_name.lower() not in release_name.lower():
+                    release_name = f"{full_name} {release_name}"
                 items.append(
                     SourceItem(
                         provider="github_watched",
                         external_id=f"{full_name.lower()}@{tag}",
                         source_family="github",
                         item_type="github_release",
-                        title=clean_text(release.get("name") or f"{full_name} {tag}", limit=300),
+                        title=clean_text(release_name, limit=300),
                         summary=clean_text(release.get("body")),
                         canonical_url=normalize_url(str(release.get("html_url") or repo["html_url"])),
                         published_at=published,
@@ -144,4 +150,3 @@ def collect_exploratory(config: AppConfig, client: CachedHttpClient, now: dateti
         error="; ".join(failures) or None,
         request_count=client.request_count,
     )
-

@@ -78,6 +78,16 @@ def test_relevance_requires_watched_entity_or_both_term_families(config: AppConf
     assert is_relevant(relevant, config)
 
 
+def test_short_ai_term_does_not_match_inside_unrelated_words(config: AppConfig) -> None:
+    item = make_item(
+        "A walkable ASCII cyberpunk city in one HTML file",
+        entity=None,
+        authority="community",
+        url="https://github.com/example/ascii-city",
+    )
+    assert not is_relevant(item, config)
+
+
 def test_freshness_has_configured_half_life(config: AppConfig) -> None:
     item = make_item("Codex release", entity="OpenAI", hours_old=48)
     candidate = Candidate("x", item.title, item.entity, item.published_at, [item], ["official"])
@@ -123,4 +133,3 @@ def test_youtube_never_changes_discovery_priority(config: AppConfig) -> None:
     before = ranked[0].discovery_priority
     ranked[0].youtube = {"videos": [{"views": 99_000_000}]}
     assert rank_candidates(ranked, config, NOW)[0].discovery_priority == before
-

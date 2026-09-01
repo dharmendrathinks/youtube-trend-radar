@@ -92,6 +92,7 @@ Each run creates uniquely timestamped Markdown and JSON files under `reports/`, 
 
 - Official feeds and watched repositories.
 - GitHub exploration queries and result bounds.
+- Whether prerelease/nightly GitHub releases should be included (disabled by default).
 - Entity aliases, categories, and relevance terms.
 - Scan windows and provider limits.
 - HTTP caching and retries.

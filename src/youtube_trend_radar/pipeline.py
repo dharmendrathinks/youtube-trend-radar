@@ -90,7 +90,10 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
         provider_results.append(youtube_result)
 
         completed = datetime.now(UTC)
-        partial = any(result.status in {"failed", "partial", "stale"} for result in provider_results)
+        discovery_partial = any(result.status in {"failed", "partial", "stale"} for result in provider_results[:-1])
+        youtube_requested = bool(config.youtube.get("enabled", True)) and not no_youtube
+        youtube_partial = youtube_requested and youtube_result.status not in {"ok", "cached"}
+        partial = discovery_partial or youtube_partial
         status = "partial" if partial else "complete"
         report = build_report(
             scan_id=scan_id,
@@ -119,4 +122,3 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
     except (ConfigError, OSError, RuntimeError, ValueError) as exc:
         print(f"scan failed: {compact_error(exc)}", file=sys.stderr)
         return 1
-

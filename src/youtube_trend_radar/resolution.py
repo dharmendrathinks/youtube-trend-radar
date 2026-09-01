@@ -20,6 +20,10 @@ STOPWORDS = {
 }
 
 
+def contains_term(text: str, term: str) -> bool:
+    return re.search(rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])", text.lower()) is not None
+
+
 def normalized_tokens(text: str) -> set[str]:
     return {token for token in TOKEN_RE.findall(text.lower()) if token not in STOPWORDS and len(token) > 1}
 
@@ -30,37 +34,38 @@ def normalized_title(text: str) -> str:
 
 def resolve_items(items: list[SourceItem], config: AppConfig) -> None:
     alias_pairs = sorted(
-        ((alias, entity) for entity, aliases in config.entities.items() for alias in [entity.lower(), *aliases]),
+        ((alias, entity) for entity, aliases in config.entities.items() for alias in aliases),
         key=lambda pair: len(pair[0]),
         reverse=True,
     )
     for item in items:
         text = f"{item.title} {item.summary} {item.canonical_url} {' '.join(item.categories)}".lower()
-        existing = (item.entity or "").lower()
-        for alias, entity in alias_pairs:
-            if alias == existing or alias in text:
-                item.entity = entity
-                break
+        if item.entity not in config.entities:
+            existing = (item.entity or "").lower()
+            for alias, entity in alias_pairs:
+                if alias == existing or contains_term(text, alias):
+                    item.entity = entity
+                    break
         matched_categories = set(item.categories)
         for category, terms in config.categories.items():
-            if any(term in text for term in terms):
+            if any(contains_term(text, term) for term in terms):
                 matched_categories.add(category)
         item.categories = sorted(matched_categories)
 
 
 def is_relevant(item: SourceItem, config: AppConfig) -> bool:
     text = f"{item.title} {item.summary} {item.canonical_url} {' '.join(item.categories)}".lower()
-    if any(term in text for term in config.relevance.get("exclude_terms", [])):
+    if any(contains_term(text, term) for term in config.relevance.get("exclude_terms", [])):
         return False
     watched_entity = item.entity in config.entities
     if watched_entity:
         return True
-    ai_match = any(term in text for term in config.relevance.get("ai_terms", []))
-    developer_match = any(term in text for term in config.relevance.get("developer_terms", []))
+    ai_match = any(contains_term(text, term) for term in config.relevance.get("ai_terms", []))
+    developer_match = any(contains_term(text, term) for term in config.relevance.get("developer_terms", []))
     if ai_match and developer_match:
         return True
     if item.source_family == "huggingface":
-        return any(term in text for term in config.relevance.get("huggingface_terms", []))
+        return any(contains_term(text, term) for term in config.relevance.get("huggingface_terms", []))
     return False
 
 
@@ -173,4 +178,3 @@ def cluster_items(items: list[SourceItem], config: AppConfig) -> list[Candidate]
             )
         )
     return candidates
-

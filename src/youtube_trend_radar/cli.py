@@ -26,6 +26,9 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv(Path.cwd() / ".env")
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(levelname)s %(message)s")
+    # httpx logs full request URLs at INFO, including YouTube's API key query parameter.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     if args.command == "scan":
         from youtube_trend_radar.pipeline import run_scan
@@ -34,4 +37,3 @@ def main(argv: list[str] | None = None) -> int:
     from youtube_trend_radar.doctor import run_doctor
 
     return run_doctor(Path(args.config))
-

@@ -51,12 +51,17 @@ def test_github_watched_and_exploration(config: AppConfig) -> None:
     }
     respx.get("https://api.github.com/repos/openai/codex").mock(return_value=httpx.Response(200, json=repo))
     respx.get("https://api.github.com/repos/openai/codex/releases").mock(
-        return_value=httpx.Response(200, json=[{"id": 1, "tag_name": "v1.2.3", "name": "Codex v1.2.3", "body": "New agent workflow", "html_url": "https://github.com/openai/codex/releases/tag/v1.2.3", "published_at": "2026-09-01T09:00:00Z"}])
+        return_value=httpx.Response(200, json=[
+            {"id": 1, "tag_name": "v1.2.3", "name": "Codex v1.2.3", "body": "New agent workflow", "html_url": "https://github.com/openai/codex/releases/tag/v1.2.3", "published_at": "2026-09-01T09:00:00Z", "prerelease": False, "draft": False},
+            {"id": 2, "tag_name": "v1.3.0-alpha.1", "name": "alpha", "html_url": "https://github.com/openai/codex/releases/tag/v1.3.0-alpha.1", "published_at": "2026-09-01T10:00:00Z", "prerelease": True, "draft": False}
+        ])
     )
     respx.get("https://api.github.com/search/repositories").mock(return_value=httpx.Response(200, json={"items": [repo]}))
     watched = github.collect_watched(config, github.build_client(config, database), NOW)
     explored = github.collect_exploratory(config, github.build_client(config, database), NOW)
     assert {item.item_type for item in watched.items} == {"github_repository_snapshot", "github_release"}
+    assert len([item for item in watched.items if item.item_type == "github_release"]) == 1
+    assert watched.items[1].title.startswith("openai/codex")
     assert explored.items[0].metrics["stars"] == 100
 
 
@@ -101,4 +106,3 @@ def test_huggingface_provider(config: AppConfig, monkeypatch) -> None:
     assert result.status == "ok"
     assert {item.item_type for item in result.items} == {"huggingface_model", "huggingface_space"}
     assert result.items[0].metrics["trending_rank"] == 1
-
