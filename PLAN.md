@@ -432,10 +432,14 @@ Defaults:
 
 - Recent 30-day publication window.
 - Up to ten results per query.
+- Video results only, relevance ordering, and English relevance-language preference.
+- Configurable negative query terms to reduce obviously off-topic result families.
 - Deduplicate video IDs across queries.
 - Order evidence by supported query relevance and recency behavior.
 - Cache successful searches for six hours.
 - Enforce a configurable per-scan request budget.
+
+The report distinguishes the compact human viewer intent from the exact query sent to YouTube. YouTube-returned video order and content are preserved. Optional deterministic title/channel relevance annotations are additive, explicitly labeled as client analysis, never used to filter or reorder results, and disabled by default behind an operator-controlled policy gate. Enabling them requires the operator to accept and comply with YouTube's applicable derived-metrics amendment.
 
 The report shows:
 
@@ -446,6 +450,7 @@ The report shows:
 - Whether validation succeeded, was disabled, used cache, was stale, or failed.
 - A direct YouTube search link for manual inspection.
 - An explicit notice that YouTube evidence did not affect Discovery Priority.
+- Whether client-generated relevance annotations were disabled or explicitly enabled, with a policy link and preservation notice.
 
 V1 does not produce an exact competition count, crowding score, quality judgment, Shorts classification, views-per-hour metric, major-creator label, or claim that an intent is fully served.
 

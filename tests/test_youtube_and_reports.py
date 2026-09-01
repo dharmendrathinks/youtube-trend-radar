@@ -9,7 +9,7 @@ from youtube_trend_radar.config import AppConfig
 from youtube_trend_radar.db import Database
 from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import Candidate, ProviderResult, SourceItem
-from youtube_trend_radar.providers.youtube import build_queries, build_viewer_intent, validate
+from youtube_trend_radar.providers.youtube import build_api_query, build_queries, build_viewer_intent, validate
 from youtube_trend_radar.reports import build_report, render_markdown
 from youtube_trend_radar.topics import attach_video_topics
 
@@ -257,6 +257,20 @@ def test_missing_key_degrades_to_manual_links(config: AppConfig, monkeypatch) ->
     assert value.youtube["included_in_discovery_priority"] is False
     assert value.youtube["manual_search_urls"]
     assert value.youtube["viewer_intent"]["basis"]
+    assert value.youtube["local_relevance_annotations"]["status"] == "disabled"
+
+
+def test_api_query_adds_configured_exclusions_without_changing_viewer_intent(config: AppConfig) -> None:
+    intent = "Codex Vim mode search"
+
+    assert build_api_query(intent, config) == "Codex Vim mode search -anime -gaming"
+    assert intent == "Codex Vim mode search"
+
+
+def test_api_query_ignores_unsafe_and_duplicate_exclusions(config: AppConfig) -> None:
+    config.youtube["exclude_query_terms"] = ["anime", "anime", "not valid", "gaming|"]
+
+    assert build_api_query("Codex Vim mode search", config) == "Codex Vim mode search -anime"
 
 
 @respx.mock
@@ -265,7 +279,10 @@ def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
     database = Database(config.database_path)
     database.initialize()
     respx.get("https://www.googleapis.com/youtube/v3/search").mock(
-        return_value=httpx.Response(200, json={"items": [{"id": {"videoId": "vid1"}}]})
+        return_value=httpx.Response(
+            200,
+            json={"items": [{"id": {"videoId": "vid2"}}, {"id": {"videoId": "vid1"}}]},
+        )
     )
     respx.get("https://www.googleapis.com/youtube/v3/videos").mock(
         return_value=httpx.Response(
@@ -277,6 +294,12 @@ def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
                         "snippet": {"title": "Codex explained", "channelTitle": "Dev", "publishedAt": "2026-09-01T10:00:00Z"},
                         "contentDetails": {"duration": "PT8M"},
                         "statistics": {"viewCount": "1234"},
+                    },
+                    {
+                        "id": "vid2",
+                        "snippet": {"title": "Unrelated result", "channelTitle": "Other", "publishedAt": "2026-09-01T11:00:00Z"},
+                        "contentDetails": {"duration": "PT4M"},
+                        "statistics": {"viewCount": "99"},
                     }
                 ]
             },
@@ -285,18 +308,103 @@ def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
     value = candidate()
     result = validate([value], config, CachedHttpClient(database, config.http, secrets=["test-key"]), NOW)
     assert result.status == "ok"
-    assert value.youtube["videos"][0]["views"] == 1234
+    assert [video["video_id"] for video in value.youtube["videos"]] == ["vid2", "vid1"]
+    assert value.youtube["videos"][1]["views"] == 1234
+    assert all("local_relevance" not in video for video in value.youtube["videos"])
+    assert value.youtube["local_relevance_annotations"]["status"] == "disabled"
     assert value.youtube["included_in_discovery_priority"] is False
+    search_request = next(call.request for call in respx.calls if call.request.url.path.endswith("/search"))
+    params = search_request.url.params
+    assert params["type"] == "video"
+    assert params["order"] == "relevance"
+    assert params["relevanceLanguage"] == "en"
+    assert params["publishedAfter"] == "2026-08-02T00:00:00Z"
+    assert params["q"].endswith("-anime -gaming")
+
+
+@respx.mock
+def test_opt_in_annotations_are_separate_and_do_not_filter_or_reorder(config: AppConfig, monkeypatch) -> None:
+    monkeypatch.setenv("YOUTUBE_API_KEY", "test-key")
+    config.youtube["enable_local_relevance_annotations"] = True
+    database = Database(config.database_path)
+    database.initialize()
+    respx.get("https://www.googleapis.com/youtube/v3/search").mock(
+        return_value=httpx.Response(
+            200,
+            json={"items": [{"id": {"videoId": "unrelated"}}, {"id": {"videoId": "strong"}}]},
+        )
+    )
+    respx.get("https://www.googleapis.com/youtube/v3/videos").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": "strong",
+                        "snippet": {
+                            "title": "Codex background agents workflow",
+                            "channelTitle": "Developer News",
+                            "publishedAt": "2026-09-01T10:00:00Z",
+                        },
+                        "contentDetails": {"duration": "PT8M"},
+                        "statistics": {},
+                    },
+                    {
+                        "id": "unrelated",
+                        "snippet": {
+                            "title": "Anime flight game",
+                            "channelTitle": "Arcade",
+                            "publishedAt": "2026-09-01T11:00:00Z",
+                        },
+                        "contentDetails": {"duration": "PT4M"},
+                        "statistics": {},
+                    },
+                ]
+            },
+        )
+    )
+
+    value = candidate()
+    before = value.discovery_priority
+    validate([value], config, CachedHttpClient(database, config.http, secrets=["test-key"]), NOW)
+
+    assert [video["video_id"] for video in value.youtube["videos"]] == ["unrelated", "strong"]
+    assert [video["title"] for video in value.youtube["videos"]] == [
+        "Anime flight game",
+        "Codex background agents workflow",
+    ]
+    assert [video["local_relevance"]["label"] for video in value.youtube["videos"]] == [
+        "unrelated",
+        "strong intent match",
+    ]
+    assert value.youtube["local_relevance_annotations"]["youtube_supplied"] is False
+    assert value.youtube["local_relevance_annotations"]["preserves_youtube_order"] is True
+    assert value.discovery_priority == before
 
 
 def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     value = candidate()
     value.youtube = {
         "status": "disabled",
-        "queries": [],
-        "manual_search_urls": [],
-        "videos": [],
+        "queries": ["Codex background agents"],
+        "api_queries": ["Codex background agents -anime -gaming"],
+        "manual_search_urls": ["https://www.youtube.com/results?search_query=Codex+background+agents+-anime+-gaming"],
+        "videos": [
+            {
+                "title": "Codex background agents workflow",
+                "url": "https://www.youtube.com/watch?v=test",
+                "channel": "Developer News",
+                "published_at": "2026-09-01T10:00:00Z",
+                "views": 10,
+                "local_relevance": {"label": "strong intent match"},
+            }
+        ],
         "reason": "no key",
+        "local_relevance_annotations": {
+            "status": "enabled",
+            "reason": "operator enabled policy-gated local content categorization",
+            "policy_url": "https://developers.google.com/youtube/terms/derived-metrics-policy",
+        },
         "viewer_intent": {
             "type": "event",
             "specificity": "high",
@@ -317,6 +425,10 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     markdown = render_markdown(report)
     assert "not included in Discovery Priority" in markdown
     assert "specificity=high" in markdown
+    assert "YouTube API query: [Codex background agents -anime -gaming]" in markdown
+    assert "Client-generated relevance annotations: enabled" in markdown
+    assert "Client annotation: strong intent match" in markdown
+    assert "YouTube result order and content are preserved" in markdown
     assert report["effective_interest_thresholds"]["strong_hn_points"] == 100
     assert report["effective_eligibility_thresholds"]["community_hn_min_points"] == 5
 

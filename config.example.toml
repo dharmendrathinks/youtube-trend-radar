@@ -65,6 +65,10 @@ queries_per_candidate = 2
 results_per_query = 10
 request_budget = 20
 cache_ttl_hours = 6
+relevance_language = "en"
+exclude_query_terms = ["anime", "gaming"]
+# Policy-gated: enable only after accepting YouTube's derived-metrics amendment.
+enable_local_relevance_annotations = false
 
 [topics]
 noise_sections = ["bug fix", "fixes", "chore", "maintenance", "dependencies", "documentation", "internal", "tests"]

@@ -13,7 +13,7 @@ from youtube_trend_radar.models import Candidate, ProviderResult, isoformat
 from youtube_trend_radar.ranking import SCORING_VERSION
 
 
-SCHEMA_VERSION = "1.2"
+SCHEMA_VERSION = "1.3"
 
 
 def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str]) -> dict[str, Any]:
@@ -179,11 +179,34 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"{viewer_intent.get('type', 'event')} · specificity={viewer_intent.get('specificity', 'unknown')}"
                 f" · {viewer_intent.get('basis', 'no basis recorded')}"
             )
-        for query, url in zip(youtube.get("queries", []), youtube.get("manual_search_urls", []), strict=False):
-            lines.append(f"- Query: [{query}]({url})")
+        queries = youtube.get("queries", [])
+        api_queries = youtube.get("api_queries", queries)
+        urls = youtube.get("manual_search_urls", [])
+        for index, query in enumerate(queries):
+            api_query = api_queries[index] if index < len(api_queries) else query
+            url = urls[index] if index < len(urls) else ""
+            if api_query != query:
+                lines.append(f"- Viewer intent: `{query}`")
+                lines.append(f"  - YouTube API query: [{api_query}]({url})")
+            else:
+                lines.append(f"- Query: [{query}]({url})")
+        annotations = youtube.get("local_relevance_annotations", {})
+        if annotations:
+            policy_url = annotations.get("policy_url", "")
+            policy_link = f" ([policy]({policy_url}))" if policy_url else ""
+            lines.append(
+                "- Client-generated relevance annotations: "
+                f"{annotations.get('status', 'disabled')} — {annotations.get('reason', 'no reason recorded')}"
+                f"{policy_link}. YouTube result order and content are preserved."
+            )
         for video in youtube.get("videos", []):
             views = f" · {video['views']:,} views" if video.get("views") is not None else ""
-            lines.append(f"- [{video['title']}]({video['url']}) — {video['channel']} · {video['published_at']}{views}")
+            annotation = video.get("local_relevance")
+            local_label = f" · Client annotation: {annotation['label']}" if annotation else ""
+            lines.append(
+                f"- [{video['title']}]({video['url']}) — "
+                f"{video['channel']} · {video['published_at']}{views}{local_label}"
+            )
         if youtube.get("reason"):
             lines.append(f"- Unavailable: {youtube['reason']}")
         for error in youtube.get("errors", []):

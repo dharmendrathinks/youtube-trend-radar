@@ -143,7 +143,9 @@ For each top candidate, V1 generates up to two event-specific searches and retri
 
 High-specificity angles are compressed into short, human-like search intents by retaining the product plus the smallest grounded subject/object terms. Filler verbs and release-note prose are removed; distinctive technical nouns remain. Versions are omitted for sufficiently specific feature phrases and retained for ambiguous or version-only intent.
 
-The report shows the intent basis and specificity, exact queries, manual search links, titles, channels, dates, durations, and available public statistics.
+The report shows the intent basis and specificity, the compact viewer intent, the exact API query, manual search links, titles, channels, dates, durations, and available public statistics. Search requests use supported YouTube controls: `type=video`, `order=relevance`, a configurable recent `publishedAfter` window, `relevanceLanguage=en` by default, and configurable negative query terms (for example, `-anime -gaming`). The returned videos remain in YouTube's order and their content is not altered.
+
+Optional deterministic title/channel annotations can label each returned item as `strong intent match`, `weak intent match`, or `unrelated`. They are additive client analysis: they never filter or reorder YouTube results and are clearly identified as not supplied by YouTube. This feature is disabled by default. Enable `youtube.enable_local_relevance_annotations` only after accepting and complying with YouTube's applicable derived-metrics amendment; the stronger request parameters do not require annotations to be enabled.
 
 YouTube evidence is never included in Discovery Priority. V1 does not calculate crowding, creator quality, views per hour, Shorts classification, or whether an intent is fully served. If the API key is absent, ranking still works and the report provides manual search links.
 
@@ -162,7 +164,9 @@ The default suite uses fixtures and mocked HTTP responses; it requires no networ
 - [GitHub REST API documentation](https://docs.github.com/en/rest)
 - [Hacker News API documentation](https://github.com/HackerNews/API)
 - [Hugging Face Hub API documentation](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api)
-- [YouTube Data API documentation](https://developers.google.com/youtube/v3)
+- [YouTube Data API `search.list` documentation](https://developers.google.com/youtube/v3/docs/search/list)
+- [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies)
+- [YouTube derived metrics policy](https://developers.google.com/youtube/terms/derived-metrics-policy)
 - Individual feed names and source links are retained in every report.
 
 Use of each API remains subject to its terms, quotas, attribution requirements, and policy changes. The project uses supported APIs and feeds and does not scrape YouTube or generic changelog pages.
@@ -171,6 +175,7 @@ Use of each API remains subject to its terms, quotas, attribution requirements, 
 
 - Ranking thresholds are useful starting heuristics, not calibrated predictions.
 - YouTube competition requires manual interpretation.
+- YouTube can still return weak or unrelated evidence despite precise queries; local relevance labels are policy-gated and disabled by default.
 - Official sources without stable feeds or APIs are absent unless represented through official GitHub releases.
 - Hugging Face trending position is treated as opaque supporting metadata.
 - First scans cannot report observed growth; later scans can.
