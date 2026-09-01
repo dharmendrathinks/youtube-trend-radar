@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from youtube_trend_radar.models import Candidate, SourceItem
-from youtube_trend_radar.topics import attach_video_topics, extract_release_topic
+from youtube_trend_radar.topics import (
+    attach_video_topics,
+    extract_release_topic,
+    partition_topicable_candidates,
+)
 
 
 NOW = datetime(2026, 9, 1, 12, tzinfo=UTC)
@@ -161,3 +165,71 @@ def test_topic_attachment_does_not_change_discovery_priority() -> None:
     attach_video_topics([candidate])
 
     assert candidate.discovery_priority == original_priority
+
+
+def test_meaningful_feature_release_remains_in_main_recommendations() -> None:
+    candidate = release_candidate("## New Features - Adds an agent workflow command.")
+    attach_video_topics([candidate])
+
+    main, release_watch = partition_topicable_candidates([candidate], 10)
+
+    assert main == [candidate]
+    assert release_watch == []
+    assert candidate.video_topic["topicability"]["status"] == "actionable"
+
+
+def test_maintenance_only_release_moves_to_release_watch() -> None:
+    candidate = release_candidate("## Maintenance - Updated packages and bumped dependencies.")
+    attach_video_topics([candidate])
+
+    main, release_watch = partition_topicable_candidates([candidate], 10)
+
+    assert main == []
+    assert release_watch == [candidate]
+    assert candidate.video_topic["topicability"]["reason"] == (
+        "fresh release has no defensible standalone video angle"
+    )
+
+
+def test_version_only_release_moves_to_release_watch() -> None:
+    candidate = release_candidate("")
+    attach_video_topics([candidate])
+
+    main, release_watch = partition_topicable_candidates([candidate], 10)
+
+    assert main == []
+    assert release_watch == [candidate]
+    assert candidate.video_topic["primary_angle"]["evidence"] is None
+
+
+def test_low_specificity_release_with_strong_interest_is_promoted() -> None:
+    candidate = release_candidate("## Bug Fixes - Fixed an occasional display glitch.")
+    candidate.interest_band = "strong"
+    candidate.interest_rule = "HN points >= 100"
+    attach_video_topics([candidate])
+
+    main, release_watch = partition_topicable_candidates([candidate], 10)
+
+    assert main == [candidate]
+    assert release_watch == []
+    assert candidate.video_topic["topicability"]["status"] == "promoted"
+    assert "HN points >= 100" in candidate.video_topic["topicability"]["promotion_rule"]
+
+
+def test_release_watch_slot_is_filled_by_next_actionable_candidate() -> None:
+    watched = release_candidate("")
+    actionable = Candidate(
+        fingerprint="actionable-project",
+        title="A specific AI developer workflow tool",
+        entity=None,
+        effective_event_time=NOW - timedelta(hours=2),
+        items=[],
+        source_families=["hacker_news"],
+        discovery_priority=70.0,
+    )
+    attach_video_topics([watched, actionable])
+
+    main, release_watch = partition_topicable_candidates([watched, actionable], 1)
+
+    assert main == [actionable]
+    assert release_watch == [watched]

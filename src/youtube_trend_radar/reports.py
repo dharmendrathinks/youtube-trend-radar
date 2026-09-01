@@ -13,7 +13,7 @@ from youtube_trend_radar.models import Candidate, ProviderResult, isoformat
 from youtube_trend_radar.ranking import SCORING_VERSION
 
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 
 
 def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str]) -> dict[str, Any]:
@@ -28,6 +28,7 @@ def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str])
         "title": candidate.title,
         "display_title": display_title or candidate.title,
         "video_topic": candidate.video_topic or None,
+        "topicability": candidate.video_topic.get("topicability") if candidate.video_topic else None,
         "entity": candidate.entity,
         "event_time": isoformat(candidate.effective_event_time),
         "age_hours": round(age_hours, 2),
@@ -66,6 +67,7 @@ def build_report(
     config: AppConfig,
     provider_results: list[ProviderResult],
     candidates: list[Candidate],
+    release_watch: list[Candidate] | None = None,
 ) -> dict[str, Any]:
     unavailable = [
         f"{result.provider}: {result.status}" + (f" ({result.error})" if result.error else "")
@@ -85,6 +87,10 @@ def build_report(
         "effective_interest_thresholds": asdict(config.ranking.interest),
         "effective_eligibility_thresholds": asdict(config.ranking.eligibility),
         "recommendations": [_candidate_dict(candidate, completed_at, unavailable) for candidate in candidates],
+        "release_watch": [
+            _candidate_dict(candidate, completed_at, unavailable)
+            for candidate in (release_watch or [])
+        ],
     }
 
 
@@ -186,6 +192,46 @@ def render_markdown(report: dict[str, Any]) -> str:
         if candidate.get("missing_or_uncertain"):
             lines.extend(["", "Missing or uncertain:", ""])
             lines.extend(f"- {value}" for value in candidate["missing_or_uncertain"])
+        lines.append("")
+
+    lines.extend(["## Release Watch", ""])
+    lines.extend(
+        [
+            "Fresh releases retained for monitoring because no clear standalone video angle was extracted.",
+            "Their underlying Discovery Priority is preserved.",
+            "",
+        ]
+    )
+    if not report.get("release_watch"):
+        lines.extend(["No releases were withheld for low topicability.", ""])
+    for index, candidate in enumerate(report.get("release_watch", []), start=1):
+        topic = candidate.get("video_topic") or {}
+        topicability = candidate.get("topicability") or {}
+        entity = f" · {candidate['entity']}" if candidate.get("entity") else ""
+        lines.extend(
+            [
+                f"### R{index}. {candidate.get('display_title') or candidate['title']}",
+                "",
+                f"**Release:** [{topic.get('release_title', candidate['title'])}]({topic.get('release_url', candidate['source_links'][0])})",
+                "",
+                f"**Topicability:** low · {topicability.get('reason', 'no clear standalone video angle')}",
+                "",
+                f"**Topic extraction:** specificity={topic.get('specificity', 'low')} · `{topic.get('extraction_version', 'unknown')}`",
+                "",
+                f"**Discovery Priority:** {candidate['discovery_priority']:.2f} · **Freshness:** {candidate['freshness']:.2f} · **Age:** {candidate['age_hours']:.1f}h{entity}",
+                "",
+                f"**Evidence:** {candidate['evidence_level']} · **Interest:** {candidate['interest_band']} (`{candidate['interest_rule']}`)",
+                "",
+            ]
+        )
+        if topic.get("fallback_reason"):
+            lines.extend([f"**Fallback reason:** {topic['fallback_reason']}", ""])
+        lines.extend(["Observed signals:", ""])
+        for signal in candidate["observed_signals"]:
+            lines.append(
+                f"- [{signal['provider']}] [{signal['title']}]({signal['canonical_url']}) — "
+                f"{signal['published_at'] or signal['observed_at']}"
+            )
         lines.append("")
 
     lines.extend(

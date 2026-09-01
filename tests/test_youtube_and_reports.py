@@ -292,3 +292,28 @@ def test_report_uses_angle_title_and_preserves_parent_release(config: AppConfig)
     assert "### 1. Codex:" in markdown
     assert "**Release:** [openai/codex 1.2.3]" in markdown
     assert "**Potential video angles:**" in markdown
+
+
+def test_report_preserves_low_topicability_release_in_release_watch(config: AppConfig) -> None:
+    watched = release_candidate(summary="## Maintenance - Updated packages and bumped dependencies.")
+    attach_video_topics([watched])
+    priority = watched.discovery_priority
+    providers = [ProviderResult("github_watched", "ok", watched.items, NOW)]
+
+    report = build_report(
+        scan_id="watch-scan",
+        started_at=NOW,
+        completed_at=NOW,
+        status="complete",
+        config=config,
+        provider_results=providers,
+        candidates=[],
+        release_watch=[watched],
+    )
+    markdown = render_markdown(report)
+
+    assert report["recommendations"] == []
+    assert report["release_watch"][0]["discovery_priority"] == priority
+    assert report["release_watch"][0]["topicability"]["status"] == "release_watch"
+    assert "## Release Watch" in markdown
+    assert "fresh release has no defensible standalone video angle" in markdown

@@ -9,6 +9,7 @@ from youtube_trend_radar.utils import clean_text
 
 
 EXTRACTION_VERSION = "release-topic-v1.1"
+TOPICABILITY_VERSION = "topicability-v1.0"
 WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9+._/-]*")
 REPOSITORY_RE = re.compile(r"\b[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\b")
 ISSUE_RE = re.compile(r"\s*\(#\d+(?:,\s*#\d+)*\)")
@@ -341,6 +342,51 @@ def extract_release_topic(candidate: Candidate, config: dict[str, Any] | None = 
     }
 
 
+def _attach_topicability(candidate: Candidate) -> None:
+    topic = candidate.video_topic
+    if not topic:
+        return
+    if topic["specificity"] != "low":
+        topic["topicability"] = {
+            "status": "actionable",
+            "main_recommendation_eligible": True,
+            "reason": "release has a defensible standalone video angle",
+            "promotion_rule": None,
+            "version": TOPICABILITY_VERSION,
+        }
+        return
+
+    promotion_rule = None
+    if len(candidate.source_families) >= 2:
+        promotion_rule = f"independently confirmed by {len(candidate.source_families)} source families"
+    elif candidate.interest_band == "strong":
+        promotion_rule = f"strong configured interest evidence: {candidate.interest_rule}"
+    topic["topicability"] = {
+        "status": "promoted" if promotion_rule else "release_watch",
+        "main_recommendation_eligible": bool(promotion_rule),
+        "reason": promotion_rule or "fresh release has no defensible standalone video angle",
+        "promotion_rule": promotion_rule,
+        "version": TOPICABILITY_VERSION,
+    }
+
+
 def attach_video_topics(candidates: list[Candidate], config: dict[str, Any] | None = None) -> None:
     for candidate in candidates:
         candidate.video_topic = extract_release_topic(candidate, config)
+        _attach_topicability(candidate)
+
+
+def partition_topicable_candidates(
+    candidates: list[Candidate],
+    result_count: int,
+) -> tuple[list[Candidate], list[Candidate]]:
+    main: list[Candidate] = []
+    release_watch: list[Candidate] = []
+    for candidate in candidates:
+        topicability = candidate.video_topic.get("topicability", {})
+        if topicability.get("main_recommendation_eligible", True):
+            if len(main) < result_count:
+                main.append(candidate)
+        elif len(release_watch) < result_count:
+            release_watch.append(candidate)
+    return main, release_watch

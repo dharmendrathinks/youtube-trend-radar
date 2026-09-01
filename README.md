@@ -135,6 +135,8 @@ After ranking, V1.1 deterministically turns a selected release into one human-re
 
 Bug-fix, documentation, dependency, internal-refactor, and maintenance sections are excluded unless they describe a developer-relevant breaking, security, availability, or material performance change. If no defensible angle remains, the report shows a low-specificity product/version release fallback instead of inventing a feature.
 
+Topicability is a post-ranking presentation gate. A low-specificity release fallback moves to **Release Watch**, preserving its original score and evidence while allowing the next actionable candidate into the main list. It can remain in the main recommendations only when it has multiple independent source families or already meets an existing configured `strong` Interest condition. Topicability never modifies Freshness, Interest, Evidence Strength, or Discovery Priority.
+
 ## YouTube evidence
 
 For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. Release searches come from the primary and alternative video angles rather than the raw repository/version title. GitHub `owner/repository` syntax and generic tutorial modifiers are not used for release intent. When notes contain no meaningful change information, the report uses a version-based release query and labels its viewer intent `low` specificity.

@@ -23,7 +23,7 @@ from youtube_trend_radar.ranking import (
 )
 from youtube_trend_radar.reports import build_report, write_reports
 from youtube_trend_radar.resolution import cluster_items
-from youtube_trend_radar.topics import attach_video_topics
+from youtube_trend_radar.topics import attach_video_topics, partition_topicable_candidates
 from youtube_trend_radar.utils import compact_error
 
 
@@ -82,10 +82,10 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
         candidates = cluster_items(eligible, config)
         attach_repository_support(candidates, all_items)
         candidates = rank_candidates(filter_eligible_candidates(candidates, config), config, started)
-        selected = candidates[:result_count]
-        attach_video_topics(selected, config.topics)
+        attach_video_topics(candidates, config.topics)
+        selected, release_watch = partition_topicable_candidates(candidates, result_count)
         unavailable_discovery = [result.provider for result in provider_results if result.status in {"failed", "stale"}]
-        for candidate in selected:
+        for candidate in [*selected, *release_watch]:
             if unavailable_discovery:
                 candidate.missing.append(f"Discovery evidence unavailable or stale: {', '.join(unavailable_discovery)}")
             if any(
@@ -113,6 +113,7 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
             config=config,
             provider_results=provider_results,
             candidates=selected,
+            release_watch=release_watch,
         )
         markdown_path, json_path = write_reports(report, config.reports_path)
         database.record_scan(
@@ -125,7 +126,7 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
             provider_statuses=[result.status_dict() for result in provider_results],
             report=report,
         )
-        print(f"Scan {scan_id}: {status}; {len(selected)} recommendations")
+        print(f"Scan {scan_id}: {status}; {len(selected)} recommendations; {len(release_watch)} release watch")
         print(f"Markdown: {markdown_path}")
         print(f"JSON: {json_path}")
         return 0
