@@ -14,7 +14,13 @@ from youtube_trend_radar.db import Database
 from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import ProviderResult
 from youtube_trend_radar.providers import github, hackernews, huggingface, official, youtube
-from youtube_trend_radar.ranking import SCORING_VERSION, eligible_items, rank_candidates
+from youtube_trend_radar.ranking import (
+    SCORING_VERSION,
+    attach_repository_support,
+    eligible_items,
+    filter_eligible_candidates,
+    rank_candidates,
+)
 from youtube_trend_radar.reports import build_report, write_reports
 from youtube_trend_radar.resolution import cluster_items
 from youtube_trend_radar.utils import compact_error
@@ -72,7 +78,9 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
             all_items.extend(result.items)
 
         eligible = eligible_items(all_items, config, started)
-        candidates = rank_candidates(cluster_items(eligible, config), config, started)
+        candidates = cluster_items(eligible, config)
+        attach_repository_support(candidates, all_items)
+        candidates = rank_candidates(filter_eligible_candidates(candidates, config), config, started)
         selected = candidates[:result_count]
         unavailable_discovery = [result.provider for result in provider_results if result.status in {"failed", "stale"}]
         for candidate in selected:

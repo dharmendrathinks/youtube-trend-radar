@@ -89,6 +89,16 @@ moderate_huggingface_trending_rank = 100
 strong_source_family_count = 3
 moderate_source_family_count = 2
 
+[ranking.eligibility]
+community_hn_min_points = 5
+community_hn_min_comments = 2
+github_explore_min_stars = 10
+huggingface_min_likes = 10
+huggingface_max_trending_rank = 100
+watched_repo_growth_min_observation_hours = 24
+watched_repo_growth_min_star_delta = 50
+watched_repo_growth_min_relative_percent = 0.5
+
 [deduplication]
 max_time_distance_hours = 72
 anchored_title_similarity = 0.55
@@ -125,10 +135,15 @@ developer_terms = [
   "automation", "open source", "open-source", "local", "server", "library", "framework",
   "repository", "github", "testing", "review",
 ]
-watched_topic_terms = [
-  "codex", "claude", "claude code", "gemini", "gemini cli", "gpt",
-  "github copilot", "copilot", "cursor", "ollama", "lm studio", "openrouter",
-  "mcp", "model context protocol", "modelcontextprotocol", "sdk", "api",
+developer_product_terms = [
+  "codex", "claude code", "gemini cli", "github copilot", "copilot", "cursor",
+  "ollama", "lm studio", "openrouter", "mcp", "model context protocol",
+  "modelcontextprotocol", "sdk", "api",
+]
+model_product_terms = ["claude", "gemini", "gpt"]
+release_event_terms = [
+  "release", "released", "launch", "launched", "available", "availability",
+  "introduces", "announces", "preview", "beta", "open source", "open-source",
 ]
 huggingface_terms = [
   "code", "coder", "agent", "tool", "mcp", "text-generation", "text-to-image",

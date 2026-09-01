@@ -39,7 +39,9 @@ def resolve_items(items: list[SourceItem], config: AppConfig) -> None:
         reverse=True,
     )
     for item in items:
-        text = f"{item.title} {item.summary} {item.canonical_url} {' '.join(item.categories)}".lower()
+        url = urlsplit(item.canonical_url)
+        identity_text = f"{item.title} {url.hostname or ''} {url.path}".lower()
+        content_text = f"{item.title} {item.summary} {' '.join(item.categories)}".lower()
         if item.entity not in config.entities:
             existing = (item.entity or "").lower()
             for alias, entity in alias_pairs:
@@ -47,30 +49,28 @@ def resolve_items(items: list[SourceItem], config: AppConfig) -> None:
                     item.entity = entity
                     break
         if item.entity not in config.entities:
-            title = item.title.lower()
             for alias, entity in alias_pairs:
-                if contains_term(title, alias):
-                    item.entity = entity
-                    break
-        if item.entity not in config.entities:
-            for alias, entity in alias_pairs:
-                if contains_term(text, alias):
+                if contains_term(identity_text, alias):
                     item.entity = entity
                     break
         matched_categories = set(item.categories)
         for category, terms in config.categories.items():
-            if any(contains_term(text, term) for term in terms):
+            if any(contains_term(content_text, term) for term in terms):
                 matched_categories.add(category)
         item.categories = sorted(matched_categories)
 
 
 def is_relevant(item: SourceItem, config: AppConfig) -> bool:
-    text = f"{item.title} {item.summary} {item.canonical_url} {' '.join(item.categories)}".lower()
+    text = f"{item.title} {item.summary} {' '.join(item.categories)}".lower()
     if any(contains_term(text, term) for term in config.relevance.get("exclude_terms", [])):
         return False
     watched_entity = item.entity in config.entities
-    watched_topic = any(contains_term(text, term) for term in config.relevance.get("watched_topic_terms", []))
-    if watched_entity and watched_topic:
+    developer_product = any(contains_term(text, term) for term in config.relevance.get("developer_product_terms", []))
+    if watched_entity and developer_product:
+        return True
+    model_product = any(contains_term(text, term) for term in config.relevance.get("model_product_terms", []))
+    release_event = any(contains_term(text, term) for term in config.relevance.get("release_event_terms", []))
+    if watched_entity and model_product and release_event:
         return True
     ai_match = any(contains_term(text, term) for term in config.relevance.get("ai_terms", []))
     developer_match = any(contains_term(text, term) for term in config.relevance.get("developer_terms", []))
@@ -83,6 +83,8 @@ def is_relevant(item: SourceItem, config: AppConfig) -> bool:
 
 def effective_item_time(item: SourceItem) -> datetime:
     if item.item_type == "github_repository_snapshot":
+        return item.published_at or item.updated_at or item.observed_at
+    if item.item_type == "github_observed_growth":
         return item.observed_at
     if item.item_type == "github_exploratory_repository":
         return item.published_at or item.observed_at

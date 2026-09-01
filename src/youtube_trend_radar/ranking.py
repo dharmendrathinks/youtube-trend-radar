@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from math import pow
 from typing import Any
@@ -27,15 +28,104 @@ def eligible_items(items: list[SourceItem], config: AppConfig, now: datetime) ->
     for item in items:
         if not is_relevant(item, config):
             continue
+        if item.item_type == "github_repository_snapshot":
+            created = item.published_at
+            if created and max(0.0, (now - created).total_seconds() / 3600) <= maximum_age_hours:
+                output.append(
+                    replace(
+                        item,
+                        item_type="github_new_repository",
+                        title=f"{item.metrics.get('repo_full_name', item.title)}: new repository — {item.summary}",
+                        metrics={**item.metrics, "event_basis": "repository creation time"},
+                    )
+                )
+                continue
+            growth = item.metrics.get("observed_growth", {})
+            stars = growth.get("metrics", {}).get("stars", {})
+            duration = float(growth.get("observation_duration_hours", 0.0) or 0.0)
+            delta = float(stars.get("delta", 0.0) or 0.0)
+            initial = float(stars.get("initial", 0.0) or 0.0)
+            relative_percent = (delta / initial * 100.0) if initial > 0 else (100.0 if delta > 0 else 0.0)
+            gate = config.ranking.eligibility
+            if (
+                growth.get("available")
+                and duration >= gate.watched_repo_growth_min_observation_hours
+                and delta >= gate.watched_repo_growth_min_star_delta
+                and relative_percent >= gate.watched_repo_growth_min_relative_percent
+            ):
+                repo = str(item.metrics.get("repo_full_name", item.title))
+                output.append(
+                    replace(
+                        item,
+                        item_type="github_observed_growth",
+                        title=f"{repo}: observed star growth (+{int(delta)} over {duration:.1f}h)",
+                        published_at=item.observed_at,
+                        metrics={
+                            **item.metrics,
+                            "event_basis": "configured observed-growth trigger",
+                            "observed_star_relative_percent": round(relative_percent, 3),
+                        },
+                    )
+                )
+            continue
         age_hours = max(0.0, (now - effective_item_time(item)).total_seconds() / 3600)
         if age_hours > maximum_age_hours:
             continue
-        if item.item_type == "github_repository_snapshot":
-            delta = observed_delta(item, "stars")
-            if delta is None or delta < config.ranking.interest.moderate_github_observed_star_delta:
-                continue
         output.append(item)
     return output
+
+
+def attach_repository_support(candidates: list[Candidate], items: list[SourceItem]) -> None:
+    snapshots = {
+        str(item.metrics.get("repo_full_name", "")).lower(): item
+        for item in items
+        if item.item_type == "github_repository_snapshot" and item.metrics.get("repo_full_name")
+    }
+    for candidate in candidates:
+        if any(item.item_type in {"github_new_repository", "github_observed_growth"} for item in candidate.items):
+            continue
+        repositories = {
+            str(item.metrics.get("repo_full_name", "")).lower()
+            for item in candidate.items
+            if item.metrics.get("repo_full_name")
+        }
+        for repository in repositories:
+            snapshot = snapshots.get(repository)
+            if snapshot and all(
+                not (item.provider == snapshot.provider and item.external_id == snapshot.external_id)
+                for item in candidate.items
+            ):
+                candidate.items.append(snapshot)
+
+
+def candidate_is_eligible(candidate: Candidate, config: AppConfig) -> bool:
+    if any(item.authority == "official" or item.source_family == "official" for item in candidate.items):
+        return True
+    if len(candidate.source_families) >= 2:
+        return True
+    if any(item.item_type in {"github_new_repository", "github_observed_growth"} for item in candidate.items):
+        return True
+
+    gate = config.ranking.eligibility
+    if candidate.source_families == ["hacker_news"]:
+        points = max((int(item.metrics.get("points", 0)) for item in candidate.items), default=0)
+        comments = max((int(item.metrics.get("comments", 0)) for item in candidate.items), default=0)
+        return points >= gate.community_hn_min_points or comments >= gate.community_hn_min_comments
+    if candidate.source_families == ["github"]:
+        stars = max(
+            (int(item.metrics.get("stars", 0)) for item in candidate.items if item.item_type == "github_exploratory_repository"),
+            default=0,
+        )
+        return stars >= gate.github_explore_min_stars
+    if candidate.source_families == ["huggingface"]:
+        likes = max((int(item.metrics.get("likes", 0)) for item in candidate.items), default=0)
+        ranks = [int(item.metrics["trending_rank"]) for item in candidate.items if item.metrics.get("trending_rank") is not None]
+        return likes >= gate.huggingface_min_likes or (ranks and min(ranks) <= gate.huggingface_max_trending_rank)
+    return False
+
+
+def filter_eligible_candidates(candidates: list[Candidate], config: AppConfig) -> list[Candidate]:
+    return [candidate for candidate in candidates if candidate_is_eligible(candidate, config)]
 
 
 def freshness_score(candidate: Candidate, config: AppConfig, now: datetime) -> float:

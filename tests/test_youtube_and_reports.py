@@ -111,4 +111,4 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     assert render_markdown(report) == render_markdown(report)
     assert "not included in Discovery Priority" in render_markdown(report)
     assert report["effective_interest_thresholds"]["strong_hn_points"] == 100
-
+    assert report["effective_eligibility_thresholds"]["community_hn_min_points"] == 5

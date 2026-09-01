@@ -76,6 +76,7 @@ def build_report(
         "product_boundary": "YouTube evidence is not included in Discovery Priority; inspect it manually.",
         "provider_status": [result.status_dict() for result in provider_results],
         "effective_interest_thresholds": asdict(config.ranking.interest),
+        "effective_eligibility_thresholds": asdict(config.ranking.eligibility),
         "recommendations": [_candidate_dict(candidate, completed_at, unavailable) for candidate in candidates],
     }
 
@@ -151,7 +152,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "`Discovery Priority = 0.60 × Freshness + 0.25 × Evidence Strength + 0.15 × Interest Value`",
             "",
-            "Interest thresholds are configuration-driven starting heuristics. The JSON report records their effective values and raw inputs.",
+            "Eligibility and interest thresholds are configuration-driven starting heuristics. The JSON report records their effective values and raw inputs.",
             "",
         ]
     )
@@ -187,4 +188,3 @@ def write_reports(report: dict[str, Any], directory: Path) -> tuple[Path, Path]:
     _atomic_write(directory / "latest.json", json_content)
     _atomic_write(directory / "latest.md", markdown_content)
     return markdown_path, json_path
-

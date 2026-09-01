@@ -96,16 +96,20 @@ Each run creates uniquely timestamped Markdown and JSON files under `reports/`, 
 - Entity aliases, categories, and relevance terms.
 - Scan windows and provider limits.
 - HTTP caching and retries.
-- All interest-band thresholds.
+- All candidate-eligibility and interest-band thresholds.
 - Ranking weights and YouTube request budget.
 
-Interest values such as HN points, observed GitHub star changes, and Hugging Face likes are uncalibrated defaults. Tune `[ranking.interest]` after inspecting real scans. The effective thresholds and configuration fingerprint are saved with each result.
+Eligibility and interest values such as HN points, observed GitHub star changes, and Hugging Face likes are uncalibrated defaults. Tune `[ranking.eligibility]` and `[ranking.interest]` after inspecting real scans. Their effective values and the configuration fingerprint are saved with each result.
 
 GitHub star changes are always **observed growth since tracking began**. The radar never invents historical star velocity.
 
+Watched repository snapshots are supporting observations, not fresh events. An old repository can become a candidate only through a release or a configured observed-growth trigger that requires minimum history plus absolute and relative growth. Newly created repositories use their actual creation time.
+
 ## Ranking
 
-Candidates must match a watched entity together with a configured product/topic anchor, or contain both an AI/model signal and a developer/tool/workflow signal. This prevents generic company news from passing solely because it mentions OpenAI, Google, or Hugging Face. Hugging Face candidates use configurable domain terms.
+Candidates must match a developer-focused product anchor, contain both AI/model and developer/tool/workflow signals, or describe a configured model-release event. General company, legal, policy, and cultural news does not pass solely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity; incidental summary mentions do not assign the event's primary entity.
+
+Single-source community candidates also cross a configurable evidence gate before ranking. For Hacker News, the default is at least five points or two comments. Weak items remain stored for later observations and can become eligible after gaining evidence or receiving independent confirmation.
 
 Freshness has a configurable 48-hour half-life:
 

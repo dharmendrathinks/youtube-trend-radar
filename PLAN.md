@@ -159,6 +159,7 @@ Purpose: detect releases and meaningful activity in known projects.
 - Suggested starter repositories include Codex, Claude Code, Gemini CLI, MCP servers, Ollama, and the Hugging Face client ecosystem.
 - Persist aggregate repository observations on every scan.
 - Store repository identity, description, topics, timestamps, release metadata, stars, forks, issues, fetched time, and API URL.
+- Treat static repository metadata as supporting evidence, never as a newly observed event.
 
 Star growth must be reported only as observed growth:
 
@@ -170,6 +171,8 @@ Star growth must be reported only as observed growth:
 - Observation duration.
 
 V1 must not claim historical star velocity for periods before the repository was tracked.
+
+An old watched repository creates a candidate only for a real release or a configured observed-growth trigger. A growth trigger requires minimum observation duration plus both absolute and relative star growth. A newly created watched repository uses its actual creation timestamp; `observed_at` never makes an old repository fresh.
 
 ### GitHub exploratory discovery
 
@@ -285,12 +288,26 @@ Ranking is a transparent prioritization heuristic, not a prediction of virality.
 
 ### Relevance gate
 
-A candidate must satisfy at least one rule:
+A candidate must satisfy at least one channel-relevance rule:
 
-- It matches a watched entity plus a configured product/topic anchor; or
-- It contains both an AI/model signal and a developer/tool/workflow signal.
+- It matches a watched entity plus a developer-focused product anchor; or
+- It contains both an AI/model signal and a developer/tool/workflow signal; or
+- It matches a watched model product plus a release/availability event anchor.
 
-An organization name alone is not sufficient: generic company, policy, or cultural news should not pass merely because it mentions OpenAI, Google, or Hugging Face. Configurable product anchors, include terms, and exclude terms handle these false positives. Items that fail the gate are stored for debugging but not recommended.
+An organization name alone is not sufficient: generic company, legal, policy, or cultural news should not pass merely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity and does not use incidental summary mentions. Configurable product anchors, event terms, include terms, and exclude terms handle these false positives. Items that fail the gate are stored for later observation but not recommended.
+
+### Candidate eligibility
+
+Relevance does not guarantee ranking eligibility. Authoritative events and independently confirmed cross-source events qualify directly. A single-source community candidate must cross a configurable provider-specific evidence floor before Freshness can affect its rank.
+
+Initial configurable floors are:
+
+- Hacker News: at least five points or two comments.
+- Exploratory GitHub: at least ten stars.
+- Hugging Face: at least ten likes or a reported top-100 trending position.
+- Watched-repository growth: at least 24 hours of observation, 50 observed stars, and 0.5% relative growth.
+
+These are starting eligibility heuristics, not calibrated truths. Weak items remain persisted and can qualify on a later scan after accumulating evidence or receiving independent confirmation.
 
 ### Conservative deduplication
 
@@ -394,6 +411,8 @@ At first observation, deltas are explicitly `unavailable` or zero-duration—not
 
 V1 will not display a calibrated `Momentum` score. It displays an interest band plus the underlying observations.
 
+First observation never makes an old watched repository fresh. Repository snapshots support genuine release candidates and remain in storage until enough observation history exists for a configured growth trigger.
+
 ## 7. YouTube Validation
 
 Validate only the top ten candidates by default. Generate no more than two searches per candidate:
@@ -495,6 +514,10 @@ Automated tests cover:
 
 - UTC timestamp parsing and age calculation.
 - Relevance inclusion/exclusion rules.
+- Generic company/legal news rejection and summary-only entity non-assignment.
+- Static repository snapshots remaining support-only and retaining their creation timestamp.
+- New-repository and mature observed-growth trigger behavior.
+- Weak community-only eligibility boundaries and later qualification.
 - URL normalization and anchor-first conservative deduplication.
 - Same-entity releases within 72 hours remaining separate without a shared event anchor.
 - Shared version, model, repository, or distinctive feature anchors merging compatible source items.
@@ -521,7 +544,7 @@ V1 is complete when:
 - One unavailable provider produces a partial report rather than a failed scan.
 - A first scan ranks candidates without invented historical momentum.
 - A second scan reports observed aggregate deltas.
-- Markdown and JSON show timestamps, signals, effective thresholds, triggering rules, Discovery Priority, provider status, missing evidence, explanations, and links.
+- Markdown and JSON show timestamps, signals, effective eligibility/interest thresholds, triggering rules, Discovery Priority, provider status, missing evidence, explanations, and links.
 - With a valid YouTube key and quota, recent competing videos appear for top candidates.
 - Without YouTube access, discovery and ranking still work and the limitation is explicit.
 - Tests do not require secrets or live network access.

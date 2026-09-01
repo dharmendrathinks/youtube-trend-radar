@@ -49,12 +49,25 @@ class InterestConfig:
 
 
 @dataclass(slots=True)
+class EligibilityConfig:
+    community_hn_min_points: int = 5
+    community_hn_min_comments: int = 2
+    github_explore_min_stars: int = 10
+    huggingface_min_likes: int = 10
+    huggingface_max_trending_rank: int = 100
+    watched_repo_growth_min_observation_hours: int = 24
+    watched_repo_growth_min_star_delta: int = 50
+    watched_repo_growth_min_relative_percent: float = 0.5
+
+
+@dataclass(slots=True)
 class RankingConfig:
     freshness_half_life_hours: float = 48.0
     freshness_weight: float = 0.60
     evidence_weight: float = 0.25
     interest_weight: float = 0.15
     interest: InterestConfig = field(default_factory=InterestConfig)
+    eligibility: EligibilityConfig = field(default_factory=EligibilityConfig)
 
 
 @dataclass(slots=True)
@@ -130,6 +143,9 @@ def load_config(path: str | Path) -> AppConfig:
     interest_raw = ranking_raw.get("interest", {})
     if not isinstance(interest_raw, dict):
         raise ConfigError("[ranking.interest] must be a TOML table")
+    eligibility_raw = ranking_raw.get("eligibility", {})
+    if not isinstance(eligibility_raw, dict):
+        raise ConfigError("[ranking.eligibility] must be a TOML table")
     dedup_raw = _require_table(data, "deduplication")
 
     feeds: list[OfficialFeedConfig] = []
@@ -143,12 +159,25 @@ def load_config(path: str | Path) -> AppConfig:
         for item in InterestConfig.__dataclass_fields__.values()
     }
     interest = InterestConfig(**interest_values)
+    eligibility = EligibilityConfig(
+        community_hn_min_points=_positive(eligibility_raw.get("community_hn_min_points", 5), "ranking.eligibility.community_hn_min_points", allow_zero=True),
+        community_hn_min_comments=_positive(eligibility_raw.get("community_hn_min_comments", 2), "ranking.eligibility.community_hn_min_comments", allow_zero=True),
+        github_explore_min_stars=_positive(eligibility_raw.get("github_explore_min_stars", 10), "ranking.eligibility.github_explore_min_stars", allow_zero=True),
+        huggingface_min_likes=_positive(eligibility_raw.get("huggingface_min_likes", 10), "ranking.eligibility.huggingface_min_likes", allow_zero=True),
+        huggingface_max_trending_rank=_positive(eligibility_raw.get("huggingface_max_trending_rank", 100), "ranking.eligibility.huggingface_max_trending_rank"),
+        watched_repo_growth_min_observation_hours=_positive(eligibility_raw.get("watched_repo_growth_min_observation_hours", 24), "ranking.eligibility.watched_repo_growth_min_observation_hours"),
+        watched_repo_growth_min_star_delta=_positive(eligibility_raw.get("watched_repo_growth_min_star_delta", 50), "ranking.eligibility.watched_repo_growth_min_star_delta", allow_zero=True),
+        watched_repo_growth_min_relative_percent=float(eligibility_raw.get("watched_repo_growth_min_relative_percent", 0.5)),
+    )
+    if eligibility.watched_repo_growth_min_relative_percent < 0:
+        raise ConfigError("ranking.eligibility.watched_repo_growth_min_relative_percent must be >= 0")
     ranking = RankingConfig(
         freshness_half_life_hours=float(ranking_raw.get("freshness_half_life_hours", 48.0)),
         freshness_weight=float(ranking_raw.get("freshness_weight", 0.60)),
         evidence_weight=float(ranking_raw.get("evidence_weight", 0.25)),
         interest_weight=float(ranking_raw.get("interest_weight", 0.15)),
         interest=interest,
+        eligibility=eligibility,
     )
     if ranking.freshness_half_life_hours <= 0:
         raise ConfigError("ranking.freshness_half_life_hours must be positive")
@@ -197,4 +226,3 @@ def load_config(path: str | Path) -> AppConfig:
         categories={str(key): [str(value).lower() for value in values] for key, values in categories.items()},
         raw=data,
     )
-
