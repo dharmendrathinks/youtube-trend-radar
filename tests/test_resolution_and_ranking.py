@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from youtube_trend_radar.config import AppConfig
 from youtube_trend_radar.models import Candidate, SourceItem
 from youtube_trend_radar.ranking import freshness_score, interest, rank_candidates
-from youtube_trend_radar.resolution import cluster_items, is_relevant, should_merge
+from youtube_trend_radar.resolution import cluster_items, is_relevant, resolve_items, should_merge
 
 
 NOW = datetime(2026, 9, 1, 12, tzinfo=UTC)
@@ -86,6 +86,28 @@ def test_short_ai_term_does_not_match_inside_unrelated_words(config: AppConfig) 
         url="https://github.com/example/ascii-city",
     )
     assert not is_relevant(item, config)
+
+
+def test_generic_company_news_needs_a_product_or_developer_anchor(config: AppConfig) -> None:
+    item = make_item(
+        "The Hugging Face hack could indicate cultural issues at OpenAI",
+        entity="OpenAI",
+        authority="community",
+        provider="hacker_news",
+        family="hacker_news",
+    )
+    assert not is_relevant(item, config)
+
+
+def test_explicit_repository_owner_wins_over_summary_alias(config: AppConfig) -> None:
+    item = make_item(
+        "openai/codex 0.152.0",
+        entity="openai",
+        metrics={"repo_full_name": "openai/codex", "release_tag": "v0.152.0"},
+    )
+    item.summary = "Adds support for several MCP servers"
+    resolve_items([item], config)
+    assert item.entity == "OpenAI"
 
 
 def test_freshness_has_configured_half_life(config: AppConfig) -> None:

@@ -112,7 +112,7 @@ HuggingFace = ["hugging face", "huggingface"]
 Ollama = ["ollama"]
 LMStudio = ["lm studio"]
 OpenRouter = ["openrouter"]
-MCP = ["model context protocol", "mcp server", "mcp tool", "mcp ecosystem"]
+MCP = ["model context protocol", "modelcontextprotocol", "mcp server", "mcp tool", "mcp ecosystem"]
 
 [relevance]
 ai_terms = [
@@ -124,6 +124,11 @@ developer_terms = [
   "developer", "coding", "code", "cli", "sdk", "api", "ide", "tool", "workflow",
   "automation", "open source", "open-source", "local", "server", "library", "framework",
   "repository", "github", "testing", "review",
+]
+watched_topic_terms = [
+  "codex", "claude", "claude code", "gemini", "gemini cli", "gpt",
+  "github copilot", "copilot", "cursor", "ollama", "lm studio", "openrouter",
+  "mcp", "model context protocol", "modelcontextprotocol", "sdk", "api",
 ]
 huggingface_terms = [
   "code", "coder", "agent", "tool", "mcp", "text-generation", "text-to-image",

@@ -105,7 +105,7 @@ GitHub star changes are always **observed growth since tracking began**. The rad
 
 ## Ranking
 
-Candidates must match a watched entity or contain both an AI/model signal and a developer/tool/workflow signal. Hugging Face candidates use configurable domain terms.
+Candidates must match a watched entity together with a configured product/topic anchor, or contain both an AI/model signal and a developer/tool/workflow signal. This prevents generic company news from passing solely because it mentions OpenAI, Google, or Hugging Face. Hugging Face candidates use configurable domain terms.
 
 Freshness has a configurable 48-hour half-life:
 

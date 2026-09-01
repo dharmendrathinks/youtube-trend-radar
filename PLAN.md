@@ -287,10 +287,10 @@ Ranking is a transparent prioritization heuristic, not a prediction of virality.
 
 A candidate must satisfy at least one rule:
 
-- It matches a watched entity or alias; or
+- It matches a watched entity plus a configured product/topic anchor; or
 - It contains both an AI/model signal and a developer/tool/workflow signal.
 
-Configurable include and exclude terms handle obvious false positives. Items that fail the gate are stored for debugging but not recommended.
+An organization name alone is not sufficient: generic company, policy, or cultural news should not pass merely because it mentions OpenAI, Google, or Hugging Face. Configurable product anchors, include terms, and exclude terms handle these false positives. Items that fail the gate are stored for debugging but not recommended.
 
 ### Conservative deduplication
 

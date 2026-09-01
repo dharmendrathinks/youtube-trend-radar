@@ -43,7 +43,18 @@ def resolve_items(items: list[SourceItem], config: AppConfig) -> None:
         if item.entity not in config.entities:
             existing = (item.entity or "").lower()
             for alias, entity in alias_pairs:
-                if alias == existing or contains_term(text, alias):
+                if alias == existing:
+                    item.entity = entity
+                    break
+        if item.entity not in config.entities:
+            title = item.title.lower()
+            for alias, entity in alias_pairs:
+                if contains_term(title, alias):
+                    item.entity = entity
+                    break
+        if item.entity not in config.entities:
+            for alias, entity in alias_pairs:
+                if contains_term(text, alias):
                     item.entity = entity
                     break
         matched_categories = set(item.categories)
@@ -58,7 +69,8 @@ def is_relevant(item: SourceItem, config: AppConfig) -> bool:
     if any(contains_term(text, term) for term in config.relevance.get("exclude_terms", [])):
         return False
     watched_entity = item.entity in config.entities
-    if watched_entity:
+    watched_topic = any(contains_term(text, term) for term in config.relevance.get("watched_topic_terms", []))
+    if watched_entity and watched_topic:
         return True
     ai_match = any(contains_term(text, term) for term in config.relevance.get("ai_terms", []))
     developer_match = any(contains_term(text, term) for term in config.relevance.get("developer_terms", []))
