@@ -29,6 +29,7 @@ def test_official_feed_provider(config: AppConfig) -> None:
     result = official.collect(config, CachedHttpClient(database, config.http), NOW)
     assert result.status == "ok"
     assert result.items[0].authority == "official"
+    assert result.items[0].updated_at is None
 
 
 @respx.mock

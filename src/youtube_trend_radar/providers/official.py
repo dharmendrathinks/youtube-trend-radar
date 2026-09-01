@@ -13,8 +13,10 @@ from youtube_trend_radar.utils import clean_text, compact_error, normalize_url, 
 
 
 def _entry_time(entry: Any, prefix: str) -> datetime | None:
-    parsed = entry.get(f"{prefix}_parsed")
-    return parse_datetime(parsed) or parse_datetime(entry.get(prefix))
+    parsed_key = f"{prefix}_parsed"
+    parsed = entry[parsed_key] if parsed_key in entry else None
+    raw = entry[prefix] if prefix in entry else None
+    return parse_datetime(parsed) or parse_datetime(raw)
 
 
 def collect(config: AppConfig, client: CachedHttpClient, now: datetime) -> ProviderResult:
@@ -72,4 +74,3 @@ def collect(config: AppConfig, client: CachedHttpClient, now: datetime) -> Provi
         error="; ".join(failures) or None,
         request_count=client.request_count,
     )
-
