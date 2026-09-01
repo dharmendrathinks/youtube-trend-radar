@@ -294,7 +294,7 @@ A candidate must satisfy at least one channel-relevance rule:
 - It contains both an AI/model signal and a developer/tool/workflow signal; or
 - It matches a watched model product plus a release/availability event anchor.
 
-An organization name alone is not sufficient: generic company, legal, policy, or cultural news should not pass merely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity and does not use incidental summary mentions. Configurable product anchors, event terms, include terms, and exclude terms handle these false positives. Items that fail the gate are stored for later observation but not recommended.
+An organization name alone is not sufficient: generic company, legal, policy, or cultural news should not pass merely because it mentions OpenAI, Anthropic, Google, or Hugging Face. News and official announcements use the title as their primary relevance surface; incidental summary mentions cannot turn a broad story into a developer-tool event. Project-oriented Show HN, Launch HN, GitHub, and Hugging Face items may use descriptions because those descriptions define the project. Entity assignment uses explicit provider identity or title/URL identity and does not use incidental summary mentions. Configurable product anchors, event terms, include terms, and exclude terms handle these false positives. Items that fail the gate are stored for later observation but not recommended.
 
 ### Candidate eligibility
 

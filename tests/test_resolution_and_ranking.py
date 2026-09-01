@@ -119,6 +119,32 @@ def test_legal_news_with_model_name_in_url_is_not_channel_relevant(config: AppCo
     assert not is_relevant(item, config)
 
 
+def test_broad_official_story_does_not_qualify_from_incidental_summary_products(config: AppConfig) -> None:
+    item = make_item(
+        "Polimill builds Japan's next-generation public AI infrastructure",
+        entity="OpenAI",
+        authority="official",
+        provider="official",
+        family="official",
+        item_type="official_announcement",
+    )
+    item.summary = "Uses GPT models and Codex while accelerating development"
+    assert not is_relevant(item, config)
+
+
+def test_show_hn_can_use_description_to_establish_developer_relevance(config: AppConfig) -> None:
+    item = make_item(
+        "Show HN: Saccade – live semantic browser truth",
+        entity=None,
+        authority="community",
+        provider="hacker_news",
+        family="hacker_news",
+        item_type="hacker_news_story",
+    )
+    item.summary = "An MCP developer tool for AI agents"
+    assert is_relevant(item, config)
+
+
 def test_summary_only_product_mention_does_not_assign_entity(config: AppConfig) -> None:
     item = make_item(
         "Show HN: Fly By – retro biplane flying game",

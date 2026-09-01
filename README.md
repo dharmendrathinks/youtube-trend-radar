@@ -107,7 +107,7 @@ Watched repository snapshots are supporting observations, not fresh events. An o
 
 ## Ranking
 
-Candidates must match a developer-focused product anchor, contain both AI/model and developer/tool/workflow signals, or describe a configured model-release event. General company, legal, policy, and cultural news does not pass solely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity; incidental summary mentions do not assign the event's primary entity.
+Candidates must match a developer-focused product anchor, contain both AI/model and developer/tool/workflow signals, or describe a configured model-release event. News and official announcements are judged by their primary title rather than incidental product mentions in summaries; project-oriented Show HN, Launch HN, GitHub, and Hugging Face items may use their descriptions to establish what the project does. General company, legal, policy, and cultural news does not pass solely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity; incidental summary mentions do not assign the event's primary entity.
 
 Single-source community candidates also cross a configurable evidence gate before ranking. For Hacker News, the default is at least five points or two comments. Weak items remain stored for later observations and can become eligible after gaining evidence or receiving independent confirmation.
 

@@ -61,23 +61,33 @@ def resolve_items(items: list[SourceItem], config: AppConfig) -> None:
 
 
 def is_relevant(item: SourceItem, config: AppConfig) -> bool:
-    text = f"{item.title} {item.summary} {' '.join(item.categories)}".lower()
-    if any(contains_term(text, term) for term in config.relevance.get("exclude_terms", [])):
+    primary_text = item.title.lower()
+    detail_text = f"{item.title} {item.summary} {' '.join(item.categories)}".lower()
+    if any(contains_term(detail_text, term) for term in config.relevance.get("exclude_terms", [])):
         return False
     watched_entity = item.entity in config.entities
-    developer_product = any(contains_term(text, term) for term in config.relevance.get("developer_product_terms", []))
+    developer_product = any(contains_term(primary_text, term) for term in config.relevance.get("developer_product_terms", []))
     if watched_entity and developer_product:
         return True
-    model_product = any(contains_term(text, term) for term in config.relevance.get("model_product_terms", []))
-    release_event = any(contains_term(text, term) for term in config.relevance.get("release_event_terms", []))
+    model_product = any(contains_term(primary_text, term) for term in config.relevance.get("model_product_terms", []))
+    release_event = any(contains_term(primary_text, term) for term in config.relevance.get("release_event_terms", []))
     if watched_entity and model_product and release_event:
         return True
-    ai_match = any(contains_term(text, term) for term in config.relevance.get("ai_terms", []))
-    developer_match = any(contains_term(text, term) for term in config.relevance.get("developer_terms", []))
+    community_project = item.title.lower().startswith(("show hn:", "launch hn:"))
+    project_item = item.item_type in {
+        "github_exploratory_repository",
+        "github_new_repository",
+        "github_observed_growth",
+        "huggingface_model",
+        "huggingface_space",
+    }
+    relevance_text = detail_text if community_project or project_item else primary_text
+    ai_match = any(contains_term(relevance_text, term) for term in config.relevance.get("ai_terms", []))
+    developer_match = any(contains_term(relevance_text, term) for term in config.relevance.get("developer_terms", []))
     if ai_match and developer_match:
         return True
     if item.source_family == "huggingface":
-        return any(contains_term(text, term) for term in config.relevance.get("huggingface_terms", []))
+        return any(contains_term(detail_text, term) for term in config.relevance.get("huggingface_terms", []))
     return False
 
 
