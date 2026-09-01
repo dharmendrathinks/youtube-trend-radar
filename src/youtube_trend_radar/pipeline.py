@@ -20,6 +20,7 @@ from youtube_trend_radar.ranking import (
     eligible_items,
     filter_eligible_candidates,
     partition_community_watch,
+    partition_main_list_floor,
     rank_candidates,
 )
 from youtube_trend_radar.reports import build_report, write_reports
@@ -85,7 +86,31 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
         candidates = rank_candidates(filter_eligible_candidates(candidates, config), config, started)
         candidates, community_watch = partition_community_watch(candidates, config)
         attach_video_topics(candidates, config.topics)
-        selected, release_watch = partition_topicable_candidates(candidates, result_count)
+        topicable, release_watch = partition_topicable_candidates(candidates, len(candidates))
+        promoted, floor_watch = partition_main_list_floor(topicable, config)
+        selected = promoted[:result_count]
+        release_watch.extend(
+            candidate
+            for candidate in floor_watch
+            if candidate.video_topic
+            or any(item.authority == "official" or item.source_family == "official" for item in candidate.items)
+        )
+        community_watch.extend(
+            candidate
+            for candidate in floor_watch
+            if not candidate.video_topic
+            and not any(item.authority == "official" or item.source_family == "official" for item in candidate.items)
+        )
+        release_watch = sorted(
+            release_watch,
+            key=lambda candidate: (candidate.discovery_priority, candidate.effective_event_time, candidate.fingerprint),
+            reverse=True,
+        )[:result_count]
+        community_watch = sorted(
+            community_watch,
+            key=lambda candidate: (candidate.discovery_priority, candidate.effective_event_time, candidate.fingerprint),
+            reverse=True,
+        )[:result_count]
         unavailable_discovery = [result.provider for result in provider_results if result.status in {"failed", "stale"}]
         for candidate in [*selected, *release_watch, *community_watch]:
             if unavailable_discovery:
@@ -116,7 +141,7 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
             provider_results=provider_results,
             candidates=selected,
             release_watch=release_watch,
-            community_watch=community_watch[:result_count],
+            community_watch=community_watch,
         )
         markdown_path, json_path = write_reports(report, config.reports_path)
         database.record_scan(

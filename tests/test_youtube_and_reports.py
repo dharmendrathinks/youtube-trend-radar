@@ -412,6 +412,7 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     assert render_markdown(report) == render_markdown(report)
     markdown = render_markdown(report)
     assert "not included in Discovery Priority" in markdown
+    assert "## Top Opportunities — 1 found" in markdown
     assert "specificity=high" in markdown
     assert "Exact YouTube search: [Codex background agents]" in markdown
     assert "judge intent relevance manually" in markdown

@@ -13,7 +13,7 @@ from youtube_trend_radar.models import Candidate, ProviderResult, isoformat
 from youtube_trend_radar.ranking import SCORING_VERSION
 
 
-SCHEMA_VERSION = "1.4"
+SCHEMA_VERSION = "1.5"
 
 
 def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str]) -> dict[str, Any]:
@@ -119,7 +119,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         safe_detail = str(detail).replace("|", "\\|")
         lines.append(f"| {provider['provider']} | {provider['status']} | {provider['item_count']} | {provider['request_count']} | {safe_detail} |")
 
-    lines.extend(["", "## Top opportunities", ""])
+    lines.extend(["", f"## Top Opportunities — {len(report['recommendations'])} found", ""])
     if not report["recommendations"]:
         lines.extend(["No relevant candidates were found in the configured lookback window.", ""])
     for index, candidate in enumerate(report["recommendations"], start=1):
@@ -231,7 +231,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(["## Release Watch", ""])
     lines.extend(
         [
-            "Fresh releases retained for monitoring because no clear standalone video angle was extracted.",
+            "Release and authoritative changelog events retained outside the main list because no clear "
+            "standalone video angle was extracted or the configured main-list floor was not met.",
             "Their underlying Discovery Priority is preserved.",
             "",
         ]
@@ -241,6 +242,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     for index, candidate in enumerate(report.get("release_watch", []), start=1):
         topic = candidate.get("video_topic") or {}
         topicability = candidate.get("topicability") or {}
+        gate = candidate.get("presentation_gate") or {}
         entity = f" · {candidate['entity']}" if candidate.get("entity") else ""
         lines.extend(
             [
@@ -248,7 +250,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 "",
                 f"**Release:** [{topic.get('release_title', candidate['title'])}]({topic.get('release_url', candidate['source_links'][0])})",
                 "",
-                f"**Topicability:** low · {topicability.get('reason', 'no clear standalone video angle')}",
+                f"**Watch reason:** {gate.get('reason') or topicability.get('reason', 'no clear standalone video angle')}",
                 "",
                 f"**Topic extraction:** specificity={topic.get('specificity', 'low')} · `{topic.get('extraction_version', 'unknown')}`",
                 "",
@@ -271,9 +273,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(["## Community Watch", ""])
     lines.extend(
         [
-            "Relevant community discoveries retained outside the English-oriented Top 10 because "
-            "they either lack a substantial Latin-script supporting source or remained weak and stagnant "
-            "after enough observation history.",
+            "Relevant community discoveries retained outside the English-oriented main list because "
+            "they lack sufficient promotion evidence, lack a substantial Latin-script supporting source, "
+            "or remained weak and stagnant after enough observation history.",
             "Their underlying Discovery Priority is preserved.",
             "",
         ]

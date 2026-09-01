@@ -61,6 +61,7 @@ class EligibilityConfig:
     community_language_min_letters: int = 20
     community_min_latin_letter_ratio: float = 0.6
     community_hn_stagnation_hours: float = 3.0
+    main_list_min_freshness: float = 40.0
 
 
 @dataclass(slots=True)
@@ -179,6 +180,7 @@ def load_config(path: str | Path) -> AppConfig:
         ),
         community_min_latin_letter_ratio=float(eligibility_raw.get("community_min_latin_letter_ratio", 0.6)),
         community_hn_stagnation_hours=float(eligibility_raw.get("community_hn_stagnation_hours", 3.0)),
+        main_list_min_freshness=float(eligibility_raw.get("main_list_min_freshness", 40.0)),
     )
     if eligibility.watched_repo_growth_min_relative_percent < 0:
         raise ConfigError("ranking.eligibility.watched_repo_growth_min_relative_percent must be >= 0")
@@ -186,6 +188,8 @@ def load_config(path: str | Path) -> AppConfig:
         raise ConfigError("ranking.eligibility.community_min_latin_letter_ratio must be between 0 and 1")
     if eligibility.community_hn_stagnation_hours <= 0:
         raise ConfigError("ranking.eligibility.community_hn_stagnation_hours must be positive")
+    if not 0 <= eligibility.main_list_min_freshness <= 100:
+        raise ConfigError("ranking.eligibility.main_list_min_freshness must be between 0 and 100")
     ranking = RankingConfig(
         freshness_half_life_hours=float(ranking_raw.get("freshness_half_life_hours", 48.0)),
         freshness_weight=float(ranking_raw.get("freshness_weight", 0.60)),

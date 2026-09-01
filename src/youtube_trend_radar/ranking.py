@@ -239,6 +239,71 @@ def partition_community_watch(
     return main, watch
 
 
+def partition_main_list_floor(
+    candidates: list[Candidate],
+    config: AppConfig,
+) -> tuple[list[Candidate], list[Candidate]]:
+    promoted: list[Candidate] = []
+    watch: list[Candidate] = []
+    minimum_freshness = config.ranking.eligibility.main_list_min_freshness
+    for candidate in candidates:
+        fresh_enough = candidate.freshness >= minimum_freshness
+        meaningful_interest = candidate.interest_band in {"moderate", "strong"}
+        independently_confirmed = len(candidate.source_families) >= 2
+        authoritative = any(
+            item.authority == "official" or item.source_family == "official"
+            for item in candidate.items
+        )
+        promotion_reasons = [
+            label
+            for matched, label in (
+                (meaningful_interest, f"{candidate.interest_band} observed interest"),
+                (independently_confirmed, "multiple independent source families"),
+                (authoritative, "authoritative event with actionable topicability"),
+            )
+            if matched
+        ]
+        if fresh_enough and promotion_reasons:
+            candidate.presentation_gate = {
+                "status": "main",
+                "gate": "main_list_floor",
+                "reason": f"freshness and {promotion_reasons[0]}",
+                "measurements": {
+                    "freshness": candidate.freshness,
+                    "interest_band": candidate.interest_band,
+                    "source_family_count": len(candidate.source_families),
+                    "authoritative": authoritative,
+                },
+                "thresholds": {"minimum_freshness": minimum_freshness},
+            }
+            promoted.append(candidate)
+            continue
+
+        failed_conditions: list[str] = []
+        if not fresh_enough:
+            failed_conditions.append(
+                f"freshness {candidate.freshness:.2f} is below configured floor {minimum_freshness:.2f}"
+            )
+        if not promotion_reasons:
+            failed_conditions.append(
+                "no moderate/strong interest, independent confirmation, or authoritative event"
+            )
+        candidate.presentation_gate = {
+            "status": "watch",
+            "gate": "main_list_floor",
+            "reason": "; ".join(failed_conditions),
+            "measurements": {
+                "freshness": candidate.freshness,
+                "interest_band": candidate.interest_band,
+                "source_family_count": len(candidate.source_families),
+                "authoritative": authoritative,
+            },
+            "thresholds": {"minimum_freshness": minimum_freshness},
+        }
+        watch.append(candidate)
+    return promoted, watch
+
+
 def freshness_score(candidate: Candidate, config: AppConfig, now: datetime) -> float:
     age_hours = max(0.0, (now - candidate.effective_event_time).total_seconds() / 3600)
     return 100.0 * pow(2.0, -age_hours / config.ranking.freshness_half_life_hours)

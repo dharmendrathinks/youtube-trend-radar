@@ -111,7 +111,9 @@ Candidates must match a developer-focused product anchor, contain both AI/model 
 
 Single-source community candidates also cross a configurable evidence gate before ranking. For Hacker News, the default is at least five points or two comments. Weak items remain stored for later observations and can become eligible after gaining evidence or receiving independent confirmation.
 
-Two post-ranking presentation gates keep the main list useful without changing any underlying score. Community/exploratory topics whose title and summary are predominantly non-Latin-script move to **Community Watch** unless another supporting source contains substantial Latin-script text. This is a transparent English-orientation proxy, not full language detection. A weak, community-only Hacker News item also moves there after three observed hours when it remains below the configured moderate-interest thresholds and gains neither points nor comments. First observations are never rejected for missing history, and authoritative or independently supported items are not removed by the stagnation rule.
+Post-ranking presentation gates keep the main list useful without changing any underlying score. Community/exploratory topics whose title and summary are predominantly non-Latin-script move to **Community Watch** unless another supporting source contains substantial Latin-script text. This is a transparent English-orientation proxy, not full language detection. A weak, community-only Hacker News item also moves there after three observed hours when it remains below the configured moderate-interest thresholds and gains neither points nor comments. First observations are never rejected for missing history, and authoritative or independently supported items are not removed by the stagnation rule.
+
+Finally, the main-list floor treats `top_results` as a maximum rather than a quota. By default, a candidate needs Freshness of at least `40` and at least one promotion reason: moderate/strong observed interest, independent cross-source confirmation, or an authoritative actionable event. Candidates below the floor keep their original scores and evidence in Release Watch or Community Watch. The radar returns fewer recommendations when fewer qualify; it never relaxes the floor to fill ten slots.
 
 Freshness has a configurable 48-hour half-life:
 
@@ -176,6 +178,7 @@ Use of each API remains subject to its terms, quotas, attribution requirements, 
 ## Known V1 limitations
 
 - Ranking thresholds are useful starting heuristics, not calibrated predictions.
+- The default main-list Freshness floor of `40` is a configurable presentation heuristic, not a claim that older topics have no value.
 - YouTube competition requires manual interpretation.
 - YouTube can still return weak or unrelated evidence despite precise queries; local relevance labels are policy-gated and disabled by default.
 - V1 deliberately does not maintain an expanding list of negative search keywords. YouTube evidence remains a manual-review surface when fuzzy retrieval returns noise.

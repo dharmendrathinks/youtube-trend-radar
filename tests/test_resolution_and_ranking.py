@@ -12,6 +12,7 @@ from youtube_trend_radar.ranking import (
     freshness_score,
     interest,
     partition_community_watch,
+    partition_main_list_floor,
     rank_candidates,
 )
 from youtube_trend_radar.resolution import cluster_items, effective_item_time, is_relevant, resolve_items, should_merge
@@ -493,3 +494,119 @@ def test_moderate_hn_interest_survives_stagnation_gate(config: AppConfig) -> Non
 
     assert main == [candidate]
     assert watch == []
+
+
+def test_main_list_floor_requires_freshness_and_promotion_evidence(config: AppConfig) -> None:
+    fresh_moderate_item = make_item(
+        "Show HN: AI coding workflow",
+        provider="hacker_news",
+        family="hacker_news",
+        authority="community",
+    )
+    fresh_moderate = Candidate(
+        "fresh-moderate",
+        fresh_moderate_item.title,
+        None,
+        fresh_moderate_item.published_at,
+        [fresh_moderate_item],
+        ["hacker_news"],
+        freshness=70,
+        interest_band="moderate",
+        discovery_priority=65,
+    )
+    fresh_weak_item = make_item(
+        "org/tiny-agent: AI coding tool",
+        provider="github_explore",
+        family="github",
+        authority="community",
+    )
+    fresh_weak = Candidate(
+        "fresh-weak",
+        fresh_weak_item.title,
+        None,
+        fresh_weak_item.published_at,
+        [fresh_weak_item],
+        ["github"],
+        freshness=70,
+        interest_band="early/limited",
+        discovery_priority=55,
+    )
+    old_strong_item = make_item(
+        "Old but popular AI model",
+        provider="huggingface",
+        family="huggingface",
+        authority="community",
+    )
+    old_strong = Candidate(
+        "old-strong",
+        old_strong_item.title,
+        None,
+        old_strong_item.published_at,
+        [old_strong_item],
+        ["huggingface"],
+        freshness=30,
+        interest_band="strong",
+        discovery_priority=50,
+    )
+
+    promoted, watch = partition_main_list_floor(
+        [fresh_moderate, fresh_weak, old_strong],
+        config,
+    )
+
+    assert promoted == [fresh_moderate]
+    assert watch == [fresh_weak, old_strong]
+    assert fresh_weak.presentation_gate["gate"] == "main_list_floor"
+    assert "no moderate/strong interest" in fresh_weak.presentation_gate["reason"]
+    assert "below configured floor" in old_strong.presentation_gate["reason"]
+
+
+def test_fresh_authoritative_event_passes_main_list_floor_without_interest(config: AppConfig) -> None:
+    item = make_item("GitHub Copilot adds agent workflows", authority="official")
+    candidate = Candidate(
+        "official",
+        item.title,
+        item.entity,
+        item.published_at,
+        [item],
+        ["official"],
+        freshness=65,
+        interest_band="early/limited",
+        discovery_priority=60,
+    )
+
+    promoted, watch = partition_main_list_floor([candidate], config)
+
+    assert promoted == [candidate]
+    assert watch == []
+    assert "authoritative event" in candidate.presentation_gate["reason"]
+
+
+def test_main_list_floor_returns_fewer_results_without_changing_priority(config: AppConfig) -> None:
+    values: list[Candidate] = []
+    for index, interest_band in enumerate(["strong", "moderate", "early/limited"]):
+        item = make_item(
+            f"Community AI developer tool {index}",
+            provider="github_explore",
+            family="github",
+            authority="community",
+        )
+        value = Candidate(
+            str(index),
+            item.title,
+            None,
+            item.published_at,
+            [item],
+            ["github"],
+            freshness=60,
+            interest_band=interest_band,
+            discovery_priority=70 - index,
+        )
+        values.append(value)
+    before = [value.discovery_priority for value in values]
+
+    promoted, watch = partition_main_list_floor(values, config)
+
+    assert len(promoted) == 2
+    assert len(watch) == 1
+    assert [value.discovery_priority for value in values] == before

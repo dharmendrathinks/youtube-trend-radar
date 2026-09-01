@@ -319,6 +319,8 @@ After scoring, two presentation gates can move an otherwise eligible community c
 
 The default configuration uses at least 20 letters, a `0.60` Latin-script ratio, and a three-hour HN observation window. Effective thresholds, measurements, and the exclusion reason are stored in JSON and shown in Markdown.
 
+A final main-list presentation floor makes the configured result count a maximum, not a target. A recommendation must meet the configured minimum Freshness and at least one observable promotion condition: moderate/strong Interest, independent cross-source confirmation, or authoritative actionable evidence. The shipped Freshness floor is `40`. Candidates below it remain persisted with their unchanged scores, measurements, threshold, and reason in the appropriate watch section. The floor is never relaxed to fill the requested count.
+
 ### Conservative deduplication
 
 Automatic merging requires strong event identity. Merge items only when one of these is true:
