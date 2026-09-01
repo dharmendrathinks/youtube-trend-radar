@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import datetime
 from math import pow
 from typing import Any
+import unicodedata
 
 from youtube_trend_radar.config import AppConfig, InterestConfig
 from youtube_trend_radar.models import Candidate, SourceItem
@@ -126,6 +127,116 @@ def candidate_is_eligible(candidate: Candidate, config: AppConfig) -> bool:
 
 def filter_eligible_candidates(candidates: list[Candidate], config: AppConfig) -> list[Candidate]:
     return [candidate for candidate in candidates if candidate_is_eligible(candidate, config)]
+
+
+def _text_language_stats(text: str) -> dict[str, Any]:
+    letters = [character for character in text if character.isalpha()]
+    latin = [
+        character
+        for character in letters
+        if "LATIN" in unicodedata.name(character, "")
+    ]
+    ratio = len(latin) / len(letters) if letters else None
+    return {
+        "letter_count": len(letters),
+        "latin_letter_count": len(latin),
+        "latin_letter_ratio": round(ratio, 3) if ratio is not None else None,
+    }
+
+
+def _language_gate(candidate: Candidate, config: AppConfig) -> dict[str, Any] | None:
+    if any(item.authority == "official" or item.source_family == "official" for item in candidate.items):
+        return None
+    gate = config.ranking.eligibility
+    classified_sources: list[dict[str, Any]] = []
+    for item in candidate.items:
+        stats = _text_language_stats(f"{item.title} {item.summary}")
+        if stats["letter_count"] >= gate.community_language_min_letters:
+            classified_sources.append(stats)
+    if not classified_sources:
+        return None
+    if any(
+        stats["latin_letter_ratio"] >= gate.community_min_latin_letter_ratio
+        for stats in classified_sources
+    ):
+        return None
+    combined = _text_language_stats(
+        " ".join(f"{item.title} {item.summary}" for item in candidate.items)
+    )
+    return {
+        "status": "community_watch",
+        "gate": "language",
+        "reason": (
+            "community/exploratory topic is predominantly non-Latin-script and has no "
+            "substantial Latin-script supporting source"
+        ),
+        "measurements": combined,
+        "thresholds": {
+            "minimum_letters": gate.community_language_min_letters,
+            "minimum_latin_letter_ratio": gate.community_min_latin_letter_ratio,
+        },
+    }
+
+
+def _hn_stagnation_gate(candidate: Candidate, config: AppConfig) -> dict[str, Any] | None:
+    if candidate.source_families != ["hacker_news"]:
+        return None
+    gate = config.ranking.eligibility
+    interest_config = config.ranking.interest
+    for item in candidate.items:
+        growth = item.metrics.get("observed_growth", {})
+        duration = float(growth.get("observation_duration_hours", 0.0) or 0.0)
+        metrics = growth.get("metrics", {})
+        points = int(item.metrics.get("points", 0))
+        comments = int(item.metrics.get("comments", 0))
+        point_delta = float(metrics.get("points", {}).get("delta", 0.0) or 0.0)
+        comment_delta = float(metrics.get("comments", {}).get("delta", 0.0) or 0.0)
+        if (
+            growth.get("available")
+            and duration >= gate.community_hn_stagnation_hours
+            and points < interest_config.moderate_hn_points
+            and comments < interest_config.moderate_hn_comments
+            and point_delta <= 0
+            and comment_delta <= 0
+        ):
+            return {
+                "status": "community_watch",
+                "gate": "stagnant_community_interest",
+                "reason": (
+                    "community-only HN item remained below moderate interest with no observed "
+                    "point or comment growth"
+                ),
+                "measurements": {
+                    "points": points,
+                    "comments": comments,
+                    "observed_point_delta": point_delta,
+                    "observed_comment_delta": comment_delta,
+                    "observation_duration_hours": duration,
+                },
+                "thresholds": {
+                    "minimum_observation_hours": gate.community_hn_stagnation_hours,
+                    "moderate_hn_points": interest_config.moderate_hn_points,
+                    "moderate_hn_comments": interest_config.moderate_hn_comments,
+                },
+            }
+    return None
+
+
+def partition_community_watch(
+    candidates: list[Candidate],
+    config: AppConfig,
+) -> tuple[list[Candidate], list[Candidate]]:
+    main: list[Candidate] = []
+    watch: list[Candidate] = []
+    for candidate in candidates:
+        decision = _language_gate(candidate, config) or _hn_stagnation_gate(candidate, config)
+        if decision:
+            candidate.presentation_gate = decision
+            watch.append(candidate)
+        else:
+            candidate.presentation_gate = {"status": "main", "gate": None, "reason": None}
+            main.append(candidate)
+    return main, watch
 
 
 def freshness_score(candidate: Candidate, config: AppConfig, now: datetime) -> float:

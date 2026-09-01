@@ -66,7 +66,6 @@ results_per_query = 10
 request_budget = 20
 cache_ttl_hours = 6
 relevance_language = "en"
-exclude_query_terms = ["anime", "gaming"]
 # Policy-gated: enable only after accepting YouTube's derived-metrics amendment.
 enable_local_relevance_annotations = false
 
@@ -109,6 +108,9 @@ huggingface_max_trending_rank = 100
 watched_repo_growth_min_observation_hours = 24
 watched_repo_growth_min_star_delta = 50
 watched_repo_growth_min_relative_percent = 0.5
+community_language_min_letters = 20
+community_min_latin_letter_ratio = 0.6
+community_hn_stagnation_hours = 3.0
 
 [deduplication]
 max_time_distance_hours = 72

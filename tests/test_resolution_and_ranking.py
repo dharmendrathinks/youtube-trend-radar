@@ -11,6 +11,7 @@ from youtube_trend_radar.ranking import (
     eligible_items,
     freshness_score,
     interest,
+    partition_community_watch,
     rank_candidates,
 )
 from youtube_trend_radar.resolution import cluster_items, effective_item_time, is_relevant, resolve_items, should_merge
@@ -341,3 +342,154 @@ def test_youtube_never_changes_discovery_priority(config: AppConfig) -> None:
     before = ranked[0].discovery_priority
     ranked[0].youtube = {"videos": [{"views": 99_000_000}]}
     assert rank_candidates(ranked, config, NOW)[0].discovery_priority == before
+
+
+def test_non_latin_exploratory_topic_moves_to_community_watch(config: AppConfig) -> None:
+    item = make_item(
+        "org/AgentGuide: 智能开发工作流实践指南和自动化教程",
+        provider="github_explore",
+        family="github",
+        entity=None,
+        item_type="github_exploratory_repository",
+        authority="community",
+        metrics={"stars": 50},
+    )
+    item.summary = "面向开发者的智能代理工具、真实任务和自动化工作流实践指南"
+    candidate = Candidate("language", item.title, None, item.published_at, [item], ["github"])
+    candidate.discovery_priority = 72.5
+
+    main, watch = partition_community_watch([candidate], config)
+
+    assert main == []
+    assert watch == [candidate]
+    assert candidate.presentation_gate["gate"] == "language"
+    assert candidate.presentation_gate["measurements"]["latin_letter_ratio"] < 0.6
+    assert candidate.discovery_priority == 72.5
+
+
+def test_non_latin_topic_with_independent_latin_support_remains_main(config: AppConfig) -> None:
+    project = make_item(
+        "org/AgentGuide: 智能开发工作流实践指南和自动化教程",
+        provider="github_explore",
+        family="github",
+        entity=None,
+        item_type="github_exploratory_repository",
+        authority="community",
+        metrics={"stars": 50},
+    )
+    project.summary = "面向开发者的智能代理工具、真实任务和自动化工作流实践指南"
+    discussion = make_item(
+        "Show HN: AgentGuide for automating AI developer workflows",
+        provider="hacker_news",
+        family="hacker_news",
+        entity=None,
+        authority="community",
+        metrics={"points": 30, "comments": 5},
+    )
+    discussion.summary = "An English overview of the tool and its coding-agent workflow"
+    candidate = Candidate(
+        "supported-language",
+        project.title,
+        None,
+        project.published_at,
+        [project, discussion],
+        ["github", "hacker_news"],
+    )
+
+    main, watch = partition_community_watch([candidate], config)
+
+    assert main == [candidate]
+    assert watch == []
+
+
+def test_weak_stagnant_hn_topic_moves_to_community_watch(config: AppConfig) -> None:
+    item = make_item(
+        "Show HN: AI coding browser agent",
+        provider="hacker_news",
+        family="hacker_news",
+        entity=None,
+        authority="community",
+        metrics={
+            "points": 5,
+            "comments": 0,
+            "observed_growth": {
+                "available": True,
+                "observation_duration_hours": 4.0,
+                "metrics": {
+                    "points": {"initial": 5, "current": 5, "delta": 0},
+                    "comments": {"initial": 0, "current": 0, "delta": 0},
+                },
+            },
+        },
+    )
+    candidate = Candidate("stagnant", item.title, None, item.published_at, [item], ["hacker_news"])
+    candidate.discovery_priority = 67.0
+
+    main, watch = partition_community_watch([candidate], config)
+
+    assert main == []
+    assert watch == [candidate]
+    assert candidate.presentation_gate["gate"] == "stagnant_community_interest"
+    assert candidate.discovery_priority == 67.0
+
+
+def test_cold_start_or_observed_growth_keeps_weak_hn_topic_in_main(config: AppConfig) -> None:
+    cold = make_item(
+        "Show HN: AI coding browser agent",
+        provider="hacker_news",
+        family="hacker_news",
+        entity=None,
+        authority="community",
+        metrics={"points": 5, "comments": 0, "observed_growth": {"available": False}},
+    )
+    growing = replace(cold, external_id="growing")
+    growing.metrics = {
+        "points": 6,
+        "comments": 0,
+        "observed_growth": {
+            "available": True,
+            "observation_duration_hours": 4.0,
+            "metrics": {
+                "points": {"initial": 5, "current": 6, "delta": 1},
+                "comments": {"initial": 0, "current": 0, "delta": 0},
+            },
+        },
+    }
+    candidates = [
+        Candidate("cold", cold.title, None, cold.published_at, [cold], ["hacker_news"]),
+        Candidate("growing", growing.title, None, growing.published_at, [growing], ["hacker_news"]),
+    ]
+
+    main, watch = partition_community_watch(candidates, config)
+
+    assert main == candidates
+    assert watch == []
+
+
+def test_moderate_hn_interest_survives_stagnation_gate(config: AppConfig) -> None:
+    points = config.ranking.interest.moderate_hn_points
+    item = make_item(
+        "Show HN: AI coding browser agent",
+        provider="hacker_news",
+        family="hacker_news",
+        entity=None,
+        authority="community",
+        metrics={
+            "points": points,
+            "comments": 0,
+            "observed_growth": {
+                "available": True,
+                "observation_duration_hours": 4.0,
+                "metrics": {
+                    "points": {"initial": points, "current": points, "delta": 0},
+                    "comments": {"initial": 0, "current": 0, "delta": 0},
+                },
+            },
+        },
+    )
+    candidate = Candidate("moderate", item.title, None, item.published_at, [item], ["hacker_news"])
+
+    main, watch = partition_community_watch([candidate], config)
+
+    assert main == [candidate]
+    assert watch == []

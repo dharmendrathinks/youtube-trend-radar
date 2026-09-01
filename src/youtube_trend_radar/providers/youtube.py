@@ -28,15 +28,6 @@ DERIVED_METRICS_POLICY_URL = "https://developers.google.com/youtube/terms/derive
 ANNOTATION_STOPWORDS = QUERY_STOPWORDS | {"release", "mode"}
 
 
-def build_api_query(intent_query: str, config: AppConfig) -> str:
-    exclusions: list[str] = []
-    for value in config.youtube.get("exclude_query_terms", ["anime", "gaming"]):
-        term = str(value).strip().lower()
-        if re.fullmatch(r"[a-z0-9_-]+", term):
-            exclusions.append(f"-{term}")
-    return clean_text(" ".join([intent_query, *dict.fromkeys(exclusions)]), limit=100)
-
-
 def _annotation_context(intent: dict[str, Any], query: str) -> dict[str, Any]:
     product = str(intent.get("product") or "").lower()
     product_words = {word.lower() for word in WORD_RE.findall(product)}
@@ -168,7 +159,7 @@ def validate(
         for candidate in targets:
             intent = build_viewer_intent(candidate, int(config.youtube.get("queries_per_candidate", 2)))
             queries = intent["queries"]
-            api_queries = [build_api_query(query, config) for query in queries]
+            api_queries = list(queries)
             candidate.youtube = {
                 "status": "disabled",
                 "reason": reason,
@@ -195,7 +186,7 @@ def validate(
     for candidate in targets:
         intent = build_viewer_intent(candidate, queries_per_candidate)
         queries = intent["queries"]
-        api_queries = [build_api_query(query, config) for query in queries]
+        api_queries = list(queries)
         ordered_ids: list[tuple[str, str, str]] = []
         candidate_failures: list[str] = []
         for query, api_query in zip(queries, api_queries, strict=True):

@@ -9,7 +9,7 @@ from youtube_trend_radar.config import AppConfig
 from youtube_trend_radar.db import Database
 from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import Candidate, ProviderResult, SourceItem
-from youtube_trend_radar.providers.youtube import build_api_query, build_queries, build_viewer_intent, validate
+from youtube_trend_radar.providers.youtube import build_queries, build_viewer_intent, validate
 from youtube_trend_radar.reports import build_report, render_markdown
 from youtube_trend_radar.topics import attach_video_topics
 
@@ -260,19 +260,6 @@ def test_missing_key_degrades_to_manual_links(config: AppConfig, monkeypatch) ->
     assert value.youtube["local_relevance_annotations"]["status"] == "disabled"
 
 
-def test_api_query_adds_configured_exclusions_without_changing_viewer_intent(config: AppConfig) -> None:
-    intent = "Codex Vim mode search"
-
-    assert build_api_query(intent, config) == "Codex Vim mode search -anime -gaming"
-    assert intent == "Codex Vim mode search"
-
-
-def test_api_query_ignores_unsafe_and_duplicate_exclusions(config: AppConfig) -> None:
-    config.youtube["exclude_query_terms"] = ["anime", "anime", "not valid", "gaming|"]
-
-    assert build_api_query("Codex Vim mode search", config) == "Codex Vim mode search -anime"
-
-
 @respx.mock
 def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
     monkeypatch.setenv("YOUTUBE_API_KEY", "test-key")
@@ -319,7 +306,8 @@ def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
     assert params["order"] == "relevance"
     assert params["relevanceLanguage"] == "en"
     assert params["publishedAfter"] == "2026-08-02T00:00:00Z"
-    assert params["q"].endswith("-anime -gaming")
+    assert params["q"] == value.youtube["queries"][0]
+    assert value.youtube["api_queries"] == value.youtube["queries"]
 
 
 @respx.mock
@@ -387,8 +375,8 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     value.youtube = {
         "status": "disabled",
         "queries": ["Codex background agents"],
-        "api_queries": ["Codex background agents -anime -gaming"],
-        "manual_search_urls": ["https://www.youtube.com/results?search_query=Codex+background+agents+-anime+-gaming"],
+        "api_queries": ["Codex background agents"],
+        "manual_search_urls": ["https://www.youtube.com/results?search_query=Codex+background+agents"],
         "videos": [
             {
                 "title": "Codex background agents workflow",
@@ -425,7 +413,8 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     markdown = render_markdown(report)
     assert "not included in Discovery Priority" in markdown
     assert "specificity=high" in markdown
-    assert "YouTube API query: [Codex background agents -anime -gaming]" in markdown
+    assert "Exact YouTube search: [Codex background agents]" in markdown
+    assert "judge intent relevance manually" in markdown
     assert "Client-generated relevance annotations: enabled" in markdown
     assert "Client annotation: strong intent match" in markdown
     assert "YouTube result order and content are preserved" in markdown
@@ -497,3 +486,32 @@ def test_report_preserves_low_topicability_release_in_release_watch(config: AppC
     assert report["release_watch"][0]["topicability"]["status"] == "release_watch"
     assert "## Release Watch" in markdown
     assert "fresh release has no defensible standalone video angle" in markdown
+
+
+def test_report_preserves_gated_candidate_in_community_watch(config: AppConfig) -> None:
+    value = candidate()
+    value.presentation_gate = {
+        "status": "community_watch",
+        "gate": "language",
+        "reason": "predominantly non-Latin-script",
+        "measurements": {"letter_count": 100, "latin_letter_ratio": 0.2},
+        "thresholds": {"minimum_latin_letter_ratio": 0.6},
+    }
+    priority = value.discovery_priority
+    report = build_report(
+        scan_id="community-watch-scan",
+        started_at=NOW,
+        completed_at=NOW,
+        status="complete",
+        config=config,
+        provider_results=[ProviderResult("github_explore", "ok", value.items, NOW)],
+        candidates=[],
+        community_watch=[value],
+    )
+    markdown = render_markdown(report)
+
+    assert report["recommendations"] == []
+    assert report["community_watch"][0]["discovery_priority"] == priority
+    assert report["community_watch"][0]["presentation_gate"]["gate"] == "language"
+    assert "## Community Watch" in markdown
+    assert "predominantly non-Latin-script" in markdown

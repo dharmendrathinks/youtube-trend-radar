@@ -58,6 +58,9 @@ class EligibilityConfig:
     watched_repo_growth_min_observation_hours: int = 24
     watched_repo_growth_min_star_delta: int = 50
     watched_repo_growth_min_relative_percent: float = 0.5
+    community_language_min_letters: int = 20
+    community_min_latin_letter_ratio: float = 0.6
+    community_hn_stagnation_hours: float = 3.0
 
 
 @dataclass(slots=True)
@@ -170,9 +173,19 @@ def load_config(path: str | Path) -> AppConfig:
         watched_repo_growth_min_observation_hours=_positive(eligibility_raw.get("watched_repo_growth_min_observation_hours", 24), "ranking.eligibility.watched_repo_growth_min_observation_hours"),
         watched_repo_growth_min_star_delta=_positive(eligibility_raw.get("watched_repo_growth_min_star_delta", 50), "ranking.eligibility.watched_repo_growth_min_star_delta", allow_zero=True),
         watched_repo_growth_min_relative_percent=float(eligibility_raw.get("watched_repo_growth_min_relative_percent", 0.5)),
+        community_language_min_letters=_positive(
+            eligibility_raw.get("community_language_min_letters", 20),
+            "ranking.eligibility.community_language_min_letters",
+        ),
+        community_min_latin_letter_ratio=float(eligibility_raw.get("community_min_latin_letter_ratio", 0.6)),
+        community_hn_stagnation_hours=float(eligibility_raw.get("community_hn_stagnation_hours", 3.0)),
     )
     if eligibility.watched_repo_growth_min_relative_percent < 0:
         raise ConfigError("ranking.eligibility.watched_repo_growth_min_relative_percent must be >= 0")
+    if not 0 <= eligibility.community_min_latin_letter_ratio <= 1:
+        raise ConfigError("ranking.eligibility.community_min_latin_letter_ratio must be between 0 and 1")
+    if eligibility.community_hn_stagnation_hours <= 0:
+        raise ConfigError("ranking.eligibility.community_hn_stagnation_hours must be positive")
     ranking = RankingConfig(
         freshness_half_life_hours=float(ranking_raw.get("freshness_half_life_hours", 48.0)),
         freshness_weight=float(ranking_raw.get("freshness_weight", 0.60)),

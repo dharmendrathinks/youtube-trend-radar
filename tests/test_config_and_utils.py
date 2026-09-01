@@ -17,6 +17,8 @@ def test_example_config_loads_with_external_interest_thresholds() -> None:
     assert config.ranking.interest.moderate_github_observed_star_delta == 5
     assert config.ranking.eligibility.community_hn_min_points == 5
     assert config.ranking.eligibility.watched_repo_growth_min_observation_hours == 24
+    assert config.ranking.eligibility.community_min_latin_letter_ratio == 0.6
+    assert config.ranking.eligibility.community_hn_stagnation_hours == 3.0
     assert config.fingerprint == load_config(ROOT / "config.example.toml").fingerprint
 
 

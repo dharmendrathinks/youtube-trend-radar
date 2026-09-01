@@ -13,7 +13,7 @@ from youtube_trend_radar.models import Candidate, ProviderResult, isoformat
 from youtube_trend_radar.ranking import SCORING_VERSION
 
 
-SCHEMA_VERSION = "1.3"
+SCHEMA_VERSION = "1.4"
 
 
 def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str]) -> dict[str, Any]:
@@ -29,6 +29,7 @@ def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str])
         "display_title": display_title or candidate.title,
         "video_topic": candidate.video_topic or None,
         "topicability": candidate.video_topic.get("topicability") if candidate.video_topic else None,
+        "presentation_gate": candidate.presentation_gate or None,
         "entity": candidate.entity,
         "event_time": isoformat(candidate.effective_event_time),
         "age_hours": round(age_hours, 2),
@@ -68,6 +69,7 @@ def build_report(
     provider_results: list[ProviderResult],
     candidates: list[Candidate],
     release_watch: list[Candidate] | None = None,
+    community_watch: list[Candidate] | None = None,
 ) -> dict[str, Any]:
     unavailable = [
         f"{result.provider}: {result.status}" + (f" ({result.error})" if result.error else "")
@@ -90,6 +92,10 @@ def build_report(
         "release_watch": [
             _candidate_dict(candidate, completed_at, unavailable)
             for candidate in (release_watch or [])
+        ],
+        "community_watch": [
+            _candidate_dict(candidate, completed_at, unavailable)
+            for candidate in (community_watch or [])
         ],
     }
 
@@ -189,7 +195,12 @@ def render_markdown(report: dict[str, Any]) -> str:
                 lines.append(f"- Viewer intent: `{query}`")
                 lines.append(f"  - YouTube API query: [{api_query}]({url})")
             else:
-                lines.append(f"- Query: [{query}]({url})")
+                lines.append(f"- Exact YouTube search: [{query}]({url})")
+        if youtube.get("videos"):
+            lines.append(
+                f"- Returned results: {len(youtube['videos'])} shown below in YouTube order; "
+                "judge intent relevance manually."
+            )
         annotations = youtube.get("local_relevance_annotations", {})
         if annotations:
             policy_url = annotations.get("policy_url", "")
@@ -250,6 +261,44 @@ def render_markdown(report: dict[str, Any]) -> str:
         if topic.get("fallback_reason"):
             lines.extend([f"**Fallback reason:** {topic['fallback_reason']}", ""])
         lines.extend(["Observed signals:", ""])
+        for signal in candidate["observed_signals"]:
+            lines.append(
+                f"- [{signal['provider']}] [{signal['title']}]({signal['canonical_url']}) — "
+                f"{signal['published_at'] or signal['observed_at']}"
+            )
+        lines.append("")
+
+    lines.extend(["## Community Watch", ""])
+    lines.extend(
+        [
+            "Relevant community discoveries retained outside the English-oriented Top 10 because "
+            "they either lack a substantial Latin-script supporting source or remained weak and stagnant "
+            "after enough observation history.",
+            "Their underlying Discovery Priority is preserved.",
+            "",
+        ]
+    )
+    if not report.get("community_watch"):
+        lines.extend(["No community candidates were withheld by presentation gates.", ""])
+    for index, candidate in enumerate(report.get("community_watch", []), start=1):
+        gate = candidate.get("presentation_gate") or {}
+        entity = f" · {candidate['entity']}" if candidate.get("entity") else ""
+        lines.extend(
+            [
+                f"### C{index}. {candidate.get('display_title') or candidate['title']}",
+                "",
+                f"**Presentation gate:** `{gate.get('gate', 'unknown')}` · {gate.get('reason', 'no reason recorded')}",
+                "",
+                f"**Discovery Priority:** {candidate['discovery_priority']:.2f} · **Freshness:** {candidate['freshness']:.2f} · **Age:** {candidate['age_hours']:.1f}h{entity}",
+                "",
+                f"**Evidence:** {candidate['evidence_level']} · **Interest:** {candidate['interest_band']} (`{candidate['interest_rule']}`)",
+                "",
+                f"**Gate measurements:** `{json.dumps(gate.get('measurements', {}), sort_keys=True, ensure_ascii=False)}`",
+                "",
+                "Observed signals:",
+                "",
+            ]
+        )
         for signal in candidate["observed_signals"]:
             lines.append(
                 f"- [{signal['provider']}] [{signal['title']}]({signal['canonical_url']}) — "

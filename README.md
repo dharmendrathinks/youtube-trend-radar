@@ -6,7 +6,7 @@ Find fresh AI and developer-tool topics before YouTube catches up.
 
 ## What V1 answers
 
-> Here are the freshest promising AI/developer topics, plus relevant YouTube evidence for you to inspect.
+> Here are the freshest promising AI/developer topics, plus raw recent YouTube evidence for you to inspect.
 
 The ranked value is **Discovery Priority**. YouTube does not affect that value in V1, so the project does not claim an automatic opportunity or crowding score.
 
@@ -111,6 +111,8 @@ Candidates must match a developer-focused product anchor, contain both AI/model 
 
 Single-source community candidates also cross a configurable evidence gate before ranking. For Hacker News, the default is at least five points or two comments. Weak items remain stored for later observations and can become eligible after gaining evidence or receiving independent confirmation.
 
+Two post-ranking presentation gates keep the main list useful without changing any underlying score. Community/exploratory topics whose title and summary are predominantly non-Latin-script move to **Community Watch** unless another supporting source contains substantial Latin-script text. This is a transparent English-orientation proxy, not full language detection. A weak, community-only Hacker News item also moves there after three observed hours when it remains below the configured moderate-interest thresholds and gains neither points nor comments. First observations are never rejected for missing history, and authoritative or independently supported items are not removed by the stagnation rule.
+
 Freshness has a configurable 48-hour half-life:
 
 ```text
@@ -143,7 +145,7 @@ For each top candidate, V1 generates up to two event-specific searches and retri
 
 High-specificity angles are compressed into short, human-like search intents by retaining the product plus the smallest grounded subject/object terms. Filler verbs and release-note prose are removed; distinctive technical nouns remain. Versions are omitted for sufficiently specific feature phrases and retained for ambiguous or version-only intent.
 
-The report shows the intent basis and specificity, the compact viewer intent, the exact API query, manual search links, titles, channels, dates, durations, and available public statistics. Search requests use supported YouTube controls: `type=video`, `order=relevance`, a configurable recent `publishedAfter` window, `relevanceLanguage=en` by default, and configurable negative query terms (for example, `-anime -gaming`). The returned videos remain in YouTube's order and their content is not altered.
+The report shows the intent basis and specificity, exact YouTube searches, manual search links, titles, channels, dates, durations, and available public statistics. Search requests use supported YouTube controls: `type=video`, `order=relevance`, a configurable recent `publishedAfter` window, and `relevanceLanguage=en` by default. The returned videos remain in YouTube's order and their content is not altered.
 
 Optional deterministic title/channel annotations can label each returned item as `strong intent match`, `weak intent match`, or `unrelated`. They are additive client analysis: they never filter or reorder YouTube results and are clearly identified as not supplied by YouTube. This feature is disabled by default. Enable `youtube.enable_local_relevance_annotations` only after accepting and complying with YouTube's applicable derived-metrics amendment; the stronger request parameters do not require annotations to be enabled.
 
@@ -176,10 +178,12 @@ Use of each API remains subject to its terms, quotas, attribution requirements, 
 - Ranking thresholds are useful starting heuristics, not calibrated predictions.
 - YouTube competition requires manual interpretation.
 - YouTube can still return weak or unrelated evidence despite precise queries; local relevance labels are policy-gated and disabled by default.
+- V1 deliberately does not maintain an expanding list of negative search keywords. YouTube evidence remains a manual-review surface when fuzzy retrieval returns noise.
 - Official sources without stable feeds or APIs are absent unless represented through official GitHub releases.
 - Hugging Face trending position is treated as opaque supporting metadata.
 - First scans cannot report observed growth; later scans can.
 - Entity resolution and event clustering are deterministic and intentionally conservative.
+- The English-orientation gate measures Latin-script letter share; it cannot distinguish English from other Latin-script languages.
 - No dashboard, notifications, LLM clustering, historical backfill, or generic web scraping is included.
 
 See [PLAN.md](PLAN.md) for the approved V1 product and architecture decisions.

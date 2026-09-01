@@ -312,6 +312,13 @@ Initial configurable floors are:
 
 These are starting eligibility heuristics, not calibrated truths. Weak items remain persisted and can qualify on a later scan after accumulating evidence or receiving independent confirmation.
 
+After scoring, two presentation gates can move an otherwise eligible community candidate to **Community Watch** without modifying Freshness, Evidence, Interest, or Discovery Priority:
+
+- English orientation: when every sufficiently long community source is below the configured Latin-script letter ratio, and no official or substantial Latin-script supporting source exists. This is deliberately a simple script heuristic, not language identification.
+- Stagnant HN evidence: when a community-only HN item remains below the configured moderate points/comments thresholds and shows no observed point or comment growth after a configurable minimum observation window. Missing first-scan history never triggers this gate.
+
+The default configuration uses at least 20 letters, a `0.60` Latin-script ratio, and a three-hour HN observation window. Effective thresholds, measurements, and the exclusion reason are stored in JSON and shown in Markdown.
+
 ### Conservative deduplication
 
 Automatic merging requires strong event identity. Merge items only when one of these is true:
@@ -433,13 +440,12 @@ Defaults:
 - Recent 30-day publication window.
 - Up to ten results per query.
 - Video results only, relevance ordering, and English relevance-language preference.
-- Configurable negative query terms to reduce obviously off-topic result families.
 - Deduplicate video IDs across queries.
 - Order evidence by supported query relevance and recency behavior.
 - Cache successful searches for six hours.
 - Enforce a configurable per-scan request budget.
 
-The report distinguishes the compact human viewer intent from the exact query sent to YouTube. YouTube-returned video order and content are preserved. Optional deterministic title/channel relevance annotations are additive, explicitly labeled as client analysis, never used to filter or reorder results, and disabled by default behind an operator-controlled policy gate. Enabling them requires the operator to accept and comply with YouTube's applicable derived-metrics amendment.
+The compact viewer intent is the exact query sent to YouTube; V1 does not accumulate ad hoc negative keywords in an attempt to post-correct fuzzy search. YouTube-returned video order and content are preserved. Optional deterministic title/channel relevance annotations are additive, explicitly labeled as client analysis, never used to filter or reorder results, and disabled by default behind an operator-controlled policy gate. Enabling them requires the operator to accept and comply with YouTube's applicable derived-metrics amendment.
 
 The report shows:
 
