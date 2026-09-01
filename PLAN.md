@@ -29,10 +29,11 @@ A scan will:
 5. Merge only obvious duplicates describing the same event.
 6. Calculate freshness and observable evidence strength.
 7. Rank candidates using non-YouTube discovery evidence.
-8. Generate precise viewer-intent YouTube searches for the highest-ranked candidates.
-9. Retrieve supported YouTube metadata and recent competing videos.
-10. Persist the scan and observations in SQLite.
-11. Write readable Markdown and machine-readable JSON reports.
+8. For selected releases, extract one grounded primary video angle and up to two alternatives without creating new candidates.
+9. Generate precise viewer-intent YouTube searches for the highest-ranked candidates.
+10. Retrieve supported YouTube metadata and recent competing videos.
+11. Persist the scan and observations in SQLite.
+12. Write readable Markdown and machine-readable JSON reports.
 
 Defaults:
 
@@ -66,6 +67,8 @@ normalization and relevance filtering
 conservative deduplication
     ↓
 freshness/evidence ranking
+    ↓
+deterministic release-to-video-angle extraction
     ↓
 YouTube validation for top candidates
     ↓
@@ -415,7 +418,9 @@ First observation never makes an old watched repository fresh. Repository snapsh
 
 ## 7. YouTube Validation
 
-Validate only the top ten candidates by default. Generate no more than two searches per candidate. For release events, construct viewer intent from the human product name, distinctive change terms in the release/changelog metadata, and the version when it helps identify the event. Do not expose GitHub `owner/repository` syntax or add generic `tutorial` modifiers to release/update/news queries. If the metadata contains no meaningful change information, retain a version-based release query and explicitly label it as low-specificity intent.
+Before YouTube validation, selected release events receive one deterministic primary video angle and up to two alternatives. The release remains the single ranked event and retains its original Discovery Priority. Extraction favors developer-facing capabilities, commands, workflows, integrations, APIs, important behavior changes, availability, and material breaking/security/performance changes. Configurable noise terms exclude routine bug fixes, dependency bumps, documentation, refactors, and maintenance. Exact supporting bullets, parent release identity, extraction version, specificity, and fallback reason are persisted in the report.
+
+Validate only the top ten candidates by default. Generate no more than two searches per candidate. For release events, construct viewer intent from the extracted primary and alternative angles rather than the raw repository/version title. Do not expose GitHub `owner/repository` syntax or add generic `tutorial` modifiers to release/update/news queries. If the metadata contains no defensible meaningful change, retain a version-based release query and explicitly label it as low-specificity intent.
 
 For non-release events and projects, use the human-readable event or project identity plus its distinctive terms. Avoid a broad product-only query whenever the event supplies a more precise intent.
 
@@ -431,6 +436,7 @@ Defaults:
 The report shows:
 
 - Exact queries used.
+- The human-readable primary release topic and optional alternative angles with exact release-note evidence.
 - Viewer-intent type, basis, and specificity, including an explicit low-specificity label for version-only releases.
 - Recent videos with titles, channels, publication ages, URLs, durations, and supported statistics.
 - Whether validation succeeded, was disabled, used cache, was stale, or failed.

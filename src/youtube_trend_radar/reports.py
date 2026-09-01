@@ -13,14 +13,21 @@ from youtube_trend_radar.models import Candidate, ProviderResult, isoformat
 from youtube_trend_radar.ranking import SCORING_VERSION
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def _candidate_dict(candidate: Candidate, now: datetime, unavailable: list[str]) -> dict[str, Any]:
     age_hours = max(0.0, (now - candidate.effective_event_time).total_seconds() / 3600)
+    display_title = (
+        candidate.video_topic.get("primary_angle", {}).get("title")
+        if candidate.video_topic
+        else candidate.title
+    )
     return {
         "fingerprint": candidate.fingerprint,
         "title": candidate.title,
+        "display_title": display_title or candidate.title,
+        "video_topic": candidate.video_topic or None,
         "entity": candidate.entity,
         "event_time": isoformat(candidate.effective_event_time),
         "age_hours": round(age_hours, 2),
@@ -105,10 +112,38 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(["No relevant candidates were found in the configured lookback window.", ""])
     for index, candidate in enumerate(report["recommendations"], start=1):
         entity = f" · {candidate['entity']}" if candidate.get("entity") else ""
+        topic = candidate.get("video_topic") or {}
         lines.extend(
             [
-                f"### {index}. {candidate['title']}",
+                f"### {index}. {candidate.get('display_title') or candidate['title']}",
                 "",
+            ]
+        )
+        if topic:
+            release_time = f" · {topic['release_published_at']}" if topic.get("release_published_at") else ""
+            lines.extend(
+                [
+                    f"**Release:** [{topic['release_title']}]({topic['release_url']}){release_time}",
+                    "",
+                    f"**Topic extraction:** specificity={topic['specificity']} · `{topic['extraction_version']}`",
+                    "",
+                    "**Potential video angles:**",
+                    "",
+                ]
+            )
+            angles = [topic["primary_angle"], *topic.get("alternative_angles", [])]
+            for angle_index, angle in enumerate(angles):
+                label = "Primary" if angle_index == 0 else "Alternative"
+                lines.append(f"- **{label}:** {angle['title']}")
+                evidence = angle.get("evidence")
+                if evidence:
+                    section = f" ({evidence['section']})" if evidence.get("section") else ""
+                    lines.append(f"  - Release-note evidence{section}: {evidence['text']}")
+            if topic.get("fallback_reason"):
+                lines.append(f"- Fallback: {topic['fallback_reason']}")
+            lines.append("")
+        lines.extend(
+            [
                 f"**Discovery Priority:** {candidate['discovery_priority']:.2f} · **Freshness:** {candidate['freshness']:.2f} · **Age:** {candidate['age_hours']:.1f}h{entity}",
                 "",
                 f"**Why investigate:** {candidate['why_investigate']}",

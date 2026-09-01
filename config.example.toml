@@ -66,6 +66,13 @@ results_per_query = 10
 request_budget = 20
 cache_ttl_hours = 6
 
+[topics]
+noise_sections = ["bug fix", "fixes", "chore", "maintenance", "dependencies", "documentation", "internal", "tests"]
+noise_terms = ["dependency bump", "bump dependency", "documentation only", "docs only", "typo", "internal refactor", "code cleanup", "test coverage", "ci configuration", "updated packages"]
+capability_terms = ["add", "introduc", "support", "enable", "allow", "offer", "can now", "new command", "new capability", "available", "preview", "beta", "integration", "configur"]
+developer_terms = ["agent", "api", "authentication", "cli", "code", "command", "config", "editor", "ide", "mcp", "model", "sdk", "server", "shell", "terminal", "tool", "workflow"]
+high_impact_terms = ["breaking", "deprecat", "security", "vulnerability", "availability", "performance", "latency", "faster"]
+
 [ranking]
 freshness_half_life_hours = 48.0
 freshness_weight = 0.60

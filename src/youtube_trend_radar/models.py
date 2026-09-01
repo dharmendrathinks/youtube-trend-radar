@@ -92,5 +92,6 @@ class Candidate:
     interest_rule: str = "no configured threshold met"
     interest_inputs: dict[str, Any] = field(default_factory=dict)
     discovery_priority: float = 0.0
+    video_topic: dict[str, Any] = field(default_factory=dict)
     youtube: dict[str, Any] = field(default_factory=dict)
     missing: list[str] = field(default_factory=list)

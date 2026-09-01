@@ -11,6 +11,7 @@ from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import Candidate, ProviderResult, SourceItem
 from youtube_trend_radar.providers.youtube import build_queries, build_viewer_intent, validate
 from youtube_trend_radar.reports import build_report, render_markdown
+from youtube_trend_radar.topics import attach_video_topics
 
 
 NOW = datetime(2026, 9, 1, 12, tzinfo=UTC)
@@ -97,7 +98,7 @@ def test_version_only_release_is_explicitly_low_specificity() -> None:
 
     assert intent["specificity"] == "low"
     assert intent["queries"] == ["Codex 1.2.3 release"]
-    assert "version-only" in intent["basis"]
+    assert "no meaningful standalone feature" in intent["basis"]
 
 
 def test_release_notes_create_feature_specific_queries() -> None:
@@ -114,7 +115,7 @@ def test_release_notes_create_feature_specific_queries() -> None:
     assert len(intent["queries"]) == 2
     assert "Vim mode" in intent["queries"][0]
     assert "MCP tools" in intent["queries"][1]
-    assert all("1.2.3" in query for query in intent["queries"])
+    assert all("1.2.3" not in query for query in intent["queries"])
     assert all(query != "Codex" for query in intent["queries"])
 
 
@@ -250,3 +251,44 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     assert "specificity=high" in markdown
     assert report["effective_interest_thresholds"]["strong_hn_points"] == 100
     assert report["effective_eligibility_thresholds"]["community_hn_min_points"] == 5
+
+
+def test_report_uses_angle_title_and_preserves_parent_release(config: AppConfig) -> None:
+    value = release_candidate(
+        summary=(
+            "## New Features - Vim mode supports search navigation within command drafts. (#50) "
+            "- MCP tools support output token limits. (#51)"
+        )
+    )
+    attach_video_topics([value])
+    value.youtube = {
+        "status": "disabled",
+        "queries": [value.video_topic["primary_angle"]["query"]],
+        "manual_search_urls": [],
+        "videos": [],
+        "reason": "no key",
+        "viewer_intent": build_viewer_intent(value),
+    }
+    providers = [
+        ProviderResult("github_watched", "ok", value.items, NOW),
+        ProviderResult("youtube", "disabled", [], NOW, error="no key"),
+    ]
+
+    report = build_report(
+        scan_id="release-scan",
+        started_at=NOW,
+        completed_at=NOW,
+        status="complete",
+        config=config,
+        provider_results=providers,
+        candidates=[value],
+    )
+    recommendation = report["recommendations"][0]
+    markdown = render_markdown(report)
+
+    assert recommendation["title"] == "openai/codex 1.2.3"
+    assert recommendation["display_title"].startswith("Codex:")
+    assert recommendation["video_topic"]["parent_event_id"] == "openai/codex:rust-v1.2.3"
+    assert "### 1. Codex:" in markdown
+    assert "**Release:** [openai/codex 1.2.3]" in markdown
+    assert "**Potential video angles:**" in markdown

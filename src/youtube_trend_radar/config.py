@@ -91,6 +91,7 @@ class AppConfig:
     hacker_news: dict[str, Any]
     huggingface: dict[str, Any]
     youtube: dict[str, Any]
+    topics: dict[str, Any]
     ranking: RankingConfig
     deduplication: DedupConfig
     entities: dict[str, list[str]]
@@ -139,6 +140,7 @@ def load_config(path: str | Path) -> AppConfig:
     hn = _require_table(data, "hacker_news")
     hf = _require_table(data, "huggingface")
     youtube = _require_table(data, "youtube")
+    topics = _require_table(data, "topics")
     ranking_raw = _require_table(data, "ranking")
     interest_raw = ranking_raw.get("interest", {})
     if not isinstance(interest_raw, dict):
@@ -215,6 +217,7 @@ def load_config(path: str | Path) -> AppConfig:
         hacker_news=hn,
         huggingface=hf,
         youtube=youtube,
+        topics=topics,
         ranking=ranking,
         deduplication=DedupConfig(
             max_time_distance_hours=_positive(dedup_raw.get("max_time_distance_hours", 72), "deduplication.max_time_distance_hours"),

@@ -23,6 +23,7 @@ from youtube_trend_radar.ranking import (
 )
 from youtube_trend_radar.reports import build_report, write_reports
 from youtube_trend_radar.resolution import cluster_items
+from youtube_trend_radar.topics import attach_video_topics
 from youtube_trend_radar.utils import compact_error
 
 
@@ -82,6 +83,7 @@ def run_scan(config_path: Path, *, top: int | None = None, no_youtube: bool = Fa
         attach_repository_support(candidates, all_items)
         candidates = rank_candidates(filter_eligible_candidates(candidates, config), config, started)
         selected = candidates[:result_count]
+        attach_video_topics(selected, config.topics)
         unavailable_discovery = [result.provider for result in provider_results if result.status in {"failed", "stale"}]
         for candidate in selected:
             if unavailable_discovery:

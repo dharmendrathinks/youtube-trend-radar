@@ -97,7 +97,7 @@ Each run creates uniquely timestamped Markdown and JSON files under `reports/`, 
 - Scan windows and provider limits.
 - HTTP caching and retries.
 - All candidate-eligibility and interest-band thresholds.
-- Ranking weights and YouTube request budget.
+- Ranking weights, release-topic noise terms, and YouTube request budget.
 
 Eligibility and interest values such as HN points, observed GitHub star changes, and Hugging Face likes are uncalibrated defaults. Tune `[ranking.eligibility]` and `[ranking.interest]` after inspecting real scans. Their effective values and the configuration fingerprint are saved with each result.
 
@@ -129,9 +129,15 @@ Evidence Strength comes from source provenance and independent source families. 
 
 Deduplication is deliberately conservative. Exact canonical targets and release identities merge automatically. Similar titles only support a merge when a shared version, model, repository, or configured feature anchor also matches. Duplicate recommendations are preferred over merging separate releases.
 
+## Release video topics
+
+After ranking, V1.1 deterministically turns a selected release into one human-readable video topic plus up to two alternative angles. It uses release-note sections, capability and developer terms, and configurable maintenance/noise terms. Each angle retains the exact supporting bullet and extraction rule. The original release remains the event of record and keeps its unchanged Discovery Priority; changelog bullets never become separate recommendations.
+
+Bug-fix, documentation, dependency, internal-refactor, and maintenance sections are excluded unless they describe a developer-relevant breaking, security, availability, or material performance change. If no defensible angle remains, the report shows a low-specificity product/version release fallback instead of inventing a feature.
+
 ## YouTube evidence
 
-For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. Release searches use a human product name plus distinctive change terms extracted from release notes, with the version where useful. GitHub `owner/repository` syntax and generic tutorial modifiers are not used for release intent. When notes contain no meaningful change information, the report uses a version-based release query and labels its viewer intent `low` specificity.
+For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. Release searches come from the primary and alternative video angles rather than the raw repository/version title. GitHub `owner/repository` syntax and generic tutorial modifiers are not used for release intent. When notes contain no meaningful change information, the report uses a version-based release query and labels its viewer intent `low` specificity.
 
 The report shows the intent basis and specificity, exact queries, manual search links, titles, channels, dates, durations, and available public statistics.
 
