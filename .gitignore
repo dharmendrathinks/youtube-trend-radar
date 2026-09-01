@@ -1,6 +1,22 @@
-.env
 .DS_Store
-node_modules/
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
 dist/
 build/
-.cache/
+
+# Runtime state and generated evidence
+data/
+reports/
+*.sqlite
+*.sqlite3
+*.db
+
+# Local configuration may contain machine-specific paths.
+config.toml
+

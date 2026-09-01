@@ -1,0 +1,136 @@
+[scan]
+lookback_days = 7
+top_results = 10
+max_workers = 5
+
+[paths]
+database = "data/radar.sqlite3"
+reports = "reports"
+
+[http]
+timeout_seconds = 15.0
+cache_ttl_minutes = 30
+stale_if_error_hours = 48
+max_retries = 2
+retry_backoff_seconds = 0.5
+user_agent = "youtube-trend-radar/0.1 (+https://github.com/dharmendrathinks/youtube-trend-radar)"
+
+[[official.feeds]]
+name = "OpenAI News"
+url = "https://openai.com/news/rss.xml"
+entity = "OpenAI"
+
+[[official.feeds]]
+name = "GitHub Changelog"
+url = "https://github.blog/changelog/feed/"
+entity = "GitHub"
+
+[[official.feeds]]
+name = "Hugging Face Blog"
+url = "https://huggingface.co/blog/feed.xml"
+entity = "Hugging Face"
+
+[github]
+watched_repositories = [
+  "openai/codex",
+  "anthropics/claude-code",
+  "google-gemini/gemini-cli",
+  "modelcontextprotocol/servers",
+  "ollama/ollama",
+  "huggingface/huggingface_hub",
+]
+exploration_queries = [
+  'created:>{since} archived:false fork:false (topic:ai-agent OR topic:llm-agent OR topic:coding-agent)',
+  'created:>{since} archived:false fork:false ("MCP" OR "model context protocol") in:name,description,readme',
+  'created:>{since} archived:false fork:false ("AI IDE" OR "coding assistant" OR "developer tool") in:name,description,readme',
+  'created:>{since} archived:false fork:false ("local LLM" OR "local AI" OR "inference") in:name,description,readme',
+]
+exploration_per_query = 15
+release_limit_per_repository = 5
+
+[hacker_news]
+feeds = ["newstories", "showstories", "topstories"]
+ids_per_feed = 60
+
+[huggingface]
+models_limit = 40
+spaces_limit = 30
+
+[youtube]
+enabled = true
+lookback_days = 30
+candidates = 10
+queries_per_candidate = 2
+results_per_query = 10
+request_budget = 20
+cache_ttl_hours = 6
+
+[ranking]
+freshness_half_life_hours = 48.0
+freshness_weight = 0.60
+evidence_weight = 0.25
+interest_weight = 0.15
+
+[ranking.interest]
+strong_hn_points = 100
+strong_hn_comments = 50
+moderate_hn_points = 20
+moderate_hn_comments = 10
+strong_github_observed_star_delta = 50
+moderate_github_observed_star_delta = 5
+exploratory_repo_max_age_days = 30
+strong_exploratory_repo_stars = 500
+moderate_exploratory_repo_stars = 50
+strong_huggingface_likes = 100
+moderate_huggingface_likes = 20
+strong_huggingface_trending_rank = 25
+moderate_huggingface_trending_rank = 100
+strong_source_family_count = 3
+moderate_source_family_count = 2
+
+[deduplication]
+max_time_distance_hours = 72
+anchored_title_similarity = 0.55
+feature_anchors = [
+  "background agents",
+  "agent mode",
+  "computer use",
+  "deep research",
+  "model context protocol",
+  "gemini cli",
+  "claude code",
+]
+
+[entities]
+OpenAI = ["openai", "codex", "chatgpt"]
+Anthropic = ["anthropic", "claude", "claude code"]
+Google = ["google ai", "gemini", "gemini cli", "google ai studio"]
+GitHub = ["github", "github copilot", "copilot"]
+Cursor = ["cursor", "cursor ide"]
+HuggingFace = ["hugging face", "huggingface"]
+Ollama = ["ollama"]
+LMStudio = ["lm studio"]
+OpenRouter = ["openrouter"]
+MCP = ["model context protocol", "mcp server", "mcp tool", "mcp ecosystem"]
+
+[relevance]
+ai_terms = [
+  "ai", "artificial intelligence", "llm", "language model", "model", "agent",
+  "claude", "codex", "gemini", "gpt", "mcp", "inference", "hugging face",
+  "ollama", "openrouter", "copilot", "cursor",
+]
+developer_terms = [
+  "developer", "coding", "code", "cli", "sdk", "api", "ide", "tool", "workflow",
+  "automation", "open source", "open-source", "local", "server", "library", "framework",
+  "repository", "github", "testing", "review",
+]
+exclude_terms = ["cryptocurrency price", "sports betting"]
+
+[categories]
+coding_agents = ["coding agent", "code agent", "agentic coding", "claude code", "codex"]
+ai_ides = ["ai ide", "cursor", "copilot"]
+mcp = ["model context protocol", "mcp server", "mcp tool"]
+local_ai = ["local ai", "local llm", "ollama", "lm studio", "inference"]
+models = ["model release", "open model", "language model", "image model", "video model", "audio model"]
+developer_tools = ["sdk", "api", "cli", "developer tool", "automation", "code review", "testing"]
+
