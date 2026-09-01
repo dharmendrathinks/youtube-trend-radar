@@ -415,10 +415,9 @@ First observation never makes an old watched repository fresh. Repository snapsh
 
 ## 7. YouTube Validation
 
-Validate only the top ten candidates by default. Generate no more than two searches per candidate:
+Validate only the top ten candidates by default. Generate no more than two searches per candidate. For release events, construct viewer intent from the human product name, distinctive change terms in the release/changelog metadata, and the version when it helps identify the event. Do not expose GitHub `owner/repository` syntax or add generic `tutorial` modifiers to release/update/news queries. If the metadata contains no meaningful change information, retain a version-based release query and explicitly label it as low-specificity intent.
 
-1. Primary entity/product plus the event's most distinctive terms.
-2. The same precise event phrase plus an appropriate intent modifier such as `tutorial`, `explained`, or `review`.
+For non-release events and projects, use the human-readable event or project identity plus its distinctive terms. Avoid a broad product-only query whenever the event supplies a more precise intent.
 
 Defaults:
 
@@ -432,6 +431,7 @@ Defaults:
 The report shows:
 
 - Exact queries used.
+- Viewer-intent type, basis, and specificity, including an explicit low-specificity label for version-only releases.
 - Recent videos with titles, channels, publication ages, URLs, durations, and supported statistics.
 - Whether validation succeeded, was disabled, used cache, was stale, or failed.
 - A direct YouTube search link for manual inspection.

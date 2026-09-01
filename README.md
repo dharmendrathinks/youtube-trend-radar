@@ -131,7 +131,9 @@ Deduplication is deliberately conservative. Exact canonical targets and release 
 
 ## YouTube evidence
 
-For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. It shows exact queries, manual search links, titles, channels, dates, durations, and available public statistics.
+For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. Release searches use a human product name plus distinctive change terms extracted from release notes, with the version where useful. GitHub `owner/repository` syntax and generic tutorial modifiers are not used for release intent. When notes contain no meaningful change information, the report uses a version-based release query and labels its viewer intent `low` specificity.
+
+The report shows the intent basis and specificity, exact queries, manual search links, titles, channels, dates, durations, and available public statistics.
 
 YouTube evidence is never included in Discovery Priority. V1 does not calculate crowding, creator quality, views per hour, Shorts classification, or whether an intent is fully served. If the API key is absent, ranking still works and the report provides manual search links.
 

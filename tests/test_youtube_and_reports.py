@@ -9,7 +9,7 @@ from youtube_trend_radar.config import AppConfig
 from youtube_trend_radar.db import Database
 from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import Candidate, ProviderResult, SourceItem
-from youtube_trend_radar.providers.youtube import build_queries, validate
+from youtube_trend_radar.providers.youtube import build_queries, build_viewer_intent, validate
 from youtube_trend_radar.reports import build_report, render_markdown
 
 
@@ -47,11 +47,135 @@ def candidate() -> Candidate:
     )
 
 
+def release_candidate(
+    *,
+    repository: str = "openai/codex",
+    tag: str = "rust-v1.2.3",
+    summary: str = "",
+    title: str = "openai/codex 1.2.3",
+) -> Candidate:
+    item = SourceItem(
+        provider="github_watched",
+        external_id=f"{repository}:{tag}",
+        source_family="github",
+        item_type="github_release",
+        title=title,
+        summary=summary,
+        canonical_url=f"https://github.com/{repository}/releases/tag/{tag}",
+        published_at=NOW - timedelta(hours=2),
+        updated_at=None,
+        observed_at=NOW,
+        entity="OpenAI" if repository == "openai/codex" else "Anthropic",
+        authority="official",
+        metrics={"repo_full_name": repository, "release_tag": tag},
+    )
+    return Candidate(
+        fingerprint=f"release:{repository}:{tag}",
+        title=item.title,
+        entity=item.entity,
+        effective_event_time=item.published_at,
+        items=[item],
+        source_families=["github"],
+        freshness=97.0,
+        evidence_level="authoritative primary source",
+        evidence_value=90,
+        interest_band="early/limited",
+        interest_value=25,
+        discovery_priority=84.45,
+    )
+
+
 def test_queries_are_specific() -> None:
     queries = build_queries(candidate())
-    assert queries[0].startswith("OpenAI")
+    assert queries[0].startswith("Codex")
     assert "Background" in queries[0]
-    assert queries[1].endswith("explained")
+    assert queries != ["Codex"]
+
+
+def test_version_only_release_is_explicitly_low_specificity() -> None:
+    intent = build_viewer_intent(release_candidate())
+
+    assert intent["specificity"] == "low"
+    assert intent["queries"] == ["Codex 1.2.3 release"]
+    assert "version-only" in intent["basis"]
+
+
+def test_release_notes_create_feature_specific_queries() -> None:
+    intent = build_viewer_intent(
+        release_candidate(
+            summary=(
+                "## New Features - Vim mode supports searches within drafts and highlighted matches. (#100) "
+                "- MCP tools support an output_token_limit setting across session resumes. (#101)"
+            )
+        )
+    )
+
+    assert intent["specificity"] == "high"
+    assert len(intent["queries"]) == 2
+    assert "Vim mode" in intent["queries"][0]
+    assert "MCP tools" in intent["queries"][1]
+    assert all("1.2.3" in query for query in intent["queries"])
+    assert all(query != "Codex" for query in intent["queries"])
+
+
+def test_repository_identifier_does_not_leak_into_release_queries() -> None:
+    intent = build_viewer_intent(
+        release_candidate(
+            repository="anthropics/claude-code",
+            tag="v2.1.252",
+            title="anthropics/claude-code v2.1.252",
+            summary='## What changed - Fixed Bash commands failing with "task output swap refused" on some Macs',
+        )
+    )
+
+    assert intent["product"] == "Claude Code"
+    assert all("anthropics/claude-code" not in query.lower() for query in intent["queries"])
+    assert all("/" not in query for query in intent["queries"])
+
+
+def test_release_intent_does_not_add_tutorial_modifier() -> None:
+    intent = build_viewer_intent(
+        release_candidate(summary="## New Features - Background agents can run coding tasks asynchronously")
+    )
+
+    assert all("tutorial" not in query.lower() for query in intent["queries"])
+    assert all("explained" not in query.lower() for query in intent["queries"])
+
+
+def test_repository_project_is_humanized_without_becoming_product_only() -> None:
+    item = SourceItem(
+        provider="github_exploratory",
+        external_id="deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        source_family="github",
+        item_type="github_exploratory_repository",
+        title="deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        summary="Experimental vision model for local inference",
+        canonical_url="https://github.com/deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+        published_at=NOW - timedelta(hours=3),
+        updated_at=None,
+        observed_at=NOW,
+        entity="DeepSeek",
+        authority="community",
+    )
+    value = Candidate(
+        fingerprint="project",
+        title=item.title,
+        entity="DeepSeek",
+        effective_event_time=item.published_at,
+        items=[item],
+        source_families=["github"],
+        freshness=95,
+        evidence_level="community",
+        evidence_value=25,
+        interest_band="early/limited",
+        interest_value=25,
+        discovery_priority=70,
+    )
+
+    queries = build_queries(value)
+    assert all("deepseek-ai/" not in query.lower() for query in queries)
+    assert all(query != "DeepSeek" for query in queries)
+    assert "V4 Flash Vision Exp" in queries[0]
 
 
 def test_missing_key_degrades_to_manual_links(config: AppConfig, monkeypatch) -> None:
@@ -63,6 +187,7 @@ def test_missing_key_degrades_to_manual_links(config: AppConfig, monkeypatch) ->
     assert result.status == "disabled"
     assert value.youtube["included_in_discovery_priority"] is False
     assert value.youtube["manual_search_urls"]
+    assert value.youtube["viewer_intent"]["basis"]
 
 
 @respx.mock
@@ -97,7 +222,18 @@ def test_youtube_search_and_hydration(config: AppConfig, monkeypatch) -> None:
 
 def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
     value = candidate()
-    value.youtube = {"status": "disabled", "queries": [], "manual_search_urls": [], "videos": [], "reason": "no key"}
+    value.youtube = {
+        "status": "disabled",
+        "queries": [],
+        "manual_search_urls": [],
+        "videos": [],
+        "reason": "no key",
+        "viewer_intent": {
+            "type": "event",
+            "specificity": "high",
+            "basis": "human-readable event title and product identity",
+        },
+    }
     providers = [ProviderResult("official", "ok", value.items, NOW), ProviderResult("youtube", "disabled", [], NOW, error="no key")]
     report = build_report(
         scan_id="scan1",
@@ -109,6 +245,8 @@ def test_report_is_deterministic_and_explicit(config: AppConfig) -> None:
         candidates=[value],
     )
     assert render_markdown(report) == render_markdown(report)
-    assert "not included in Discovery Priority" in render_markdown(report)
+    markdown = render_markdown(report)
+    assert "not included in Discovery Priority" in markdown
+    assert "specificity=high" in markdown
     assert report["effective_interest_thresholds"]["strong_hn_points"] == 100
     assert report["effective_eligibility_thresholds"]["community_hn_min_points"] == 5

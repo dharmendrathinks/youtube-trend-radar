@@ -131,6 +131,13 @@ def render_markdown(report: dict[str, Any]) -> str:
 
         youtube = candidate["youtube_evidence"]
         lines.extend(["", f"YouTube evidence ({youtube.get('status', 'not checked')} — not included in Discovery Priority):", ""])
+        viewer_intent = youtube.get("viewer_intent", {})
+        if viewer_intent:
+            lines.append(
+                "- Viewer intent: "
+                f"{viewer_intent.get('type', 'event')} · specificity={viewer_intent.get('specificity', 'unknown')}"
+                f" · {viewer_intent.get('basis', 'no basis recorded')}"
+            )
         for query, url in zip(youtube.get("queries", []), youtube.get("manual_search_urls", []), strict=False):
             lines.append(f"- Query: [{query}]({url})")
         for video in youtube.get("videos", []):
