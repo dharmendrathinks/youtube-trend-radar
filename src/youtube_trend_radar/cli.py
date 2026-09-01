@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = subparsers.add_parser("scan", help="collect, rank, and report current opportunities")
     scan.add_argument("--config", default="config.toml", help="TOML configuration path")
-    scan.add_argument("--top", type=int, help="override recommendation count")
+    scan.add_argument("--top", type=int, help="maximum number of Top Opportunities")
     scan.add_argument("--no-youtube", action="store_true", help="skip YouTube validation")
 
     doctor = subparsers.add_parser("doctor", help="check configuration, storage, credentials, and connectivity")

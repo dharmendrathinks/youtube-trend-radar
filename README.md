@@ -1,127 +1,58 @@
 # YouTube Trend Radar
 
-Find fresh AI and developer-tool topics before YouTube catches up.
+A developer-focused, event-first radar for finding fresh AI/developer video topics before they become obvious everywhere.
 
-`youtube-trend-radar` collects live ecosystem events, ranks them with deterministic discovery heuristics, and shows recent YouTube videos for manual competition review. It is an event radar, not a virality predictor.
+`youtube-trend-radar` watches upstream ecosystem events, ranks the ones worth investigating, and attaches recent YouTube evidence for manual coverage review. It is deterministic, runs without an LLM, and does **not** claim to predict virality.
 
-## What V1 answers
-
-> Here are the freshest promising AI/developer topics, plus raw recent YouTube evidence for you to inspect.
-
-The ranked value is **Discovery Priority**. YouTube does not affect that value in V1, so the project does not claim an automatic opportunity or crowding score.
-
-## Sources
-
-- Configured official RSS/Atom feeds.
-- Watched GitHub repositories and releases through the official REST API.
-- Exploratory GitHub repository search.
-- Hacker News through the official Firebase API.
-- Hugging Face models and Spaces through the supported Hub client.
-- YouTube validation through the YouTube Data API.
-
-A provider can fail without terminating the scan. Reports identify failed, cached, stale, and disabled evidence.
-
-## Requirements
-
-- Python 3.12 or newer.
-- A GitHub token is optional but strongly recommended.
-- A Hugging Face token is optional for public data.
-- A YouTube Data API key is required only for live YouTube video evidence.
-
-No paid data source or LLM is required.
-
-## Setup
-
-Using [`uv`](https://docs.astral.sh/uv/):
-
-```bash
-git clone https://github.com/dharmendrathinks/youtube-trend-radar.git
-cd youtube-trend-radar
-cp config.example.toml config.toml
-cp .env.example .env
-uv sync --extra dev --python 3.12
+```text
+Official releases/changelogs + GitHub watchlist/exploration
+                         + Hacker News + Hugging Face
+                                      ↓
+       normalization + freshness + evidence + observed interest
+                                      ↓
+                             Top Opportunities
+                                      ↓
+                  YouTube evidence for manual inspection
 ```
 
-Or with standard Python:
+YouTube evidence never affects Discovery Priority. V1 does not calculate a default YouTube crowding or opportunity score.
 
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
-cp config.example.toml config.toml
-cp .env.example .env
-```
+## Why this exists
 
-Edit `.env` as needed:
+Most trend tools become useful after attention has already accumulated. For a creator covering coding agents, AI IDEs, MCP, local AI, developer models, SDKs, and open-source tools, that can be too late.
 
-```dotenv
-GITHUB_TOKEN=
-HF_TOKEN=
-YOUTUBE_API_KEY=
-```
+This project starts farther upstream. A new official release can matter before it trends; early GitHub, Hacker News, or Hugging Face activity can strengthen the case; YouTube then helps the operator inspect whether the exact viewer intent is already being served.
 
-Neither `.env` nor `config.toml` is tracked. Never place credentials in example files.
+## What it watches
 
-## Usage
+| Source | V1 responsibility | Credential |
+|---|---|---|
+| Official RSS/Atom feeds | Product releases, changelogs, and authoritative announcements | None |
+| GitHub watched repositories | Releases plus repeated aggregate repository observations | `GITHUB_TOKEN` optional, recommended |
+| GitHub exploration | Newly created AI/developer repositories outside the watchlist | `GITHUB_TOKEN` optional, recommended |
+| Hacker News | Relevant submissions, points, comments, and observed change | None |
+| Hugging Face | Emerging models and Spaces with supported public metadata | `HF_TOKEN` optional |
+| YouTube | Recent video metadata and direct searches for manual coverage inspection | `YOUTUBE_API_KEY` optional |
 
-Check installation and live connectivity:
+Providers are isolated: one unavailable provider does not terminate an otherwise usable scan. Reports identify failures, stale/cache state, and missing evidence.
 
-```bash
-uv run youtube-trend-radar doctor
-```
+## Output model
 
-Run a complete scan:
+- **Top Opportunities** — actionable topics worth investigating now. The configured count is a maximum; the radar returns fewer results rather than backfilling weak candidates.
+- **Release Watch** — release or authoritative changelog events that lack a sufficiently useful/current video angle or do not meet the main-list presentation floor.
+- **Community Watch** — relevant discoveries retained outside the primary list because of weak or stagnant evidence, English-orientation gates, freshness, or insufficient promotion evidence.
 
-```bash
-uv run youtube-trend-radar scan
-```
+Each recommendation includes timestamps, score inputs, triggering rules, observed signals, missing evidence, source links, and YouTube evidence when available. Markdown is designed for reading; JSON is suitable for downstream tooling.
 
-Useful options:
+## Discovery Priority
 
-```bash
-uv run youtube-trend-radar scan --top 5
-uv run youtube-trend-radar scan --no-youtube
-uv run youtube-trend-radar scan --config path/to/config.toml
-```
-
-Each run creates uniquely timestamped Markdown and JSON files under `reports/`, plus `latest.md` and `latest.json`. SQLite observations and HTTP cache data live under `data/`. Both directories are ignored by Git, so the first live scan is preserved locally without entering the repository.
-
-## Configuration
-
-`config.example.toml` is a runnable starting point. It controls:
-
-- Official feeds and watched repositories.
-- GitHub exploration queries and result bounds.
-- Whether prerelease/nightly GitHub releases should be included (disabled by default).
-- Entity aliases, categories, and relevance terms.
-- Scan windows and provider limits.
-- HTTP caching and retries.
-- All candidate-eligibility and interest-band thresholds.
-- Ranking weights, release-topic noise terms, and YouTube request budget.
-
-Eligibility and interest values such as HN points, observed GitHub star changes, and Hugging Face likes are uncalibrated defaults. Tune `[ranking.eligibility]` and `[ranking.interest]` after inspecting real scans. Their effective values and the configuration fingerprint are saved with each result.
-
-GitHub star changes are always **observed growth since tracking began**. The radar never invents historical star velocity.
-
-Watched repository snapshots are supporting observations, not fresh events. An old repository can become a candidate only through a release or a configured observed-growth trigger that requires minimum history plus absolute and relative growth. Newly created repositories use their actual creation time.
-
-## Ranking
-
-Candidates must match a developer-focused product anchor, contain both AI/model and developer/tool/workflow signals, or describe a configured model-release event. News and official announcements are judged by their primary title rather than incidental product mentions in summaries; project-oriented Show HN, Launch HN, GitHub, and Hugging Face items may use their descriptions to establish what the project does. General company, legal, policy, and cultural news does not pass solely because it mentions OpenAI, Anthropic, Google, or Hugging Face. Entity assignment uses explicit provider identity or title/URL identity; incidental summary mentions do not assign the event's primary entity.
-
-Single-source community candidates also cross a configurable evidence gate before ranking. For Hacker News, the default is at least five points or two comments. Weak items remain stored for later observations and can become eligible after gaining evidence or receiving independent confirmation.
-
-Post-ranking presentation gates keep the main list useful without changing any underlying score. Community/exploratory topics whose title and summary are predominantly non-Latin-script move to **Community Watch** unless another supporting source contains substantial Latin-script text. This is a transparent English-orientation proxy, not full language detection. A weak, community-only Hacker News item also moves there after three observed hours when it remains below the configured moderate-interest thresholds and gains neither points nor comments. First observations are never rejected for missing history, and authoritative or independently supported items are not removed by the stagnation rule.
-
-Finally, the main-list floor treats `top_results` as a maximum rather than a quota. By default, a candidate needs Freshness of at least `40` and at least one promotion reason: moderate/strong observed interest, independent cross-source confirmation, or an authoritative actionable event. Candidates below the floor keep their original scores and evidence in Release Watch or Community Watch. The radar returns fewer recommendations when fewer qualify; it never relaxes the floor to fill ten slots.
-
-Freshness has a configurable 48-hour half-life:
+Freshness uses the best credible event timestamp and a configurable 48-hour half-life:
 
 ```text
 Freshness = 100 × 2 ^ (-age_hours / 48)
 ```
 
-Discovery order is:
+Evidence Strength reflects observable provenance: an authoritative source, independent confirmation, or a single community source. Interest is a configured `strong`, `moderate`, or `early/limited` band backed by current HN, GitHub, Hugging Face, and source-family measurements.
 
 ```text
 Discovery Priority = 0.60 × Freshness
@@ -129,68 +60,179 @@ Discovery Priority = 0.60 × Freshness
                    + 0.15 × Interest Value
 ```
 
-Evidence Strength comes from source provenance and independent source families. Interest is a configured `strong`, `moderate`, or `early/limited` band. Reports expose every score input and triggering rule.
+Discovery Priority orders discovery evidence; it is not a probability, virality forecast, or YouTube opportunity score. A separate presentation floor requires sufficient freshness plus moderate/strong interest, independent confirmation, or authoritative actionable evidence before a candidate enters Top Opportunities. All thresholds live in `config.toml` and are starting heuristics, not scientifically calibrated predictions.
 
-Deduplication is deliberately conservative. Exact canonical targets and release identities merge automatically. Similar titles only support a merge when a shared version, model, repository, or configured feature anchor also matches. Duplicate recommendations are preferred over merging separate releases.
+## Quick start
 
-## Release video topics
+Requirements: Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/).
 
-After ranking, V1.1 deterministically turns a selected release into one human-readable video topic plus up to two alternative angles. It uses release-note sections, capability and developer terms, and configurable maintenance/noise terms. Each angle retains the exact supporting bullet and extraction rule. The original release remains the event of record and keeps its unchanged Discovery Priority; changelog bullets never become separate recommendations.
+```bash
+git clone https://github.com/dharmendrathinks/youtube-trend-radar.git
+cd youtube-trend-radar
 
-Bug-fix, documentation, dependency, internal-refactor, and maintenance sections are excluded unless they describe a developer-relevant breaking, security, availability, or material performance change. If no defensible angle remains, the report shows a low-specificity product/version release fallback instead of inventing a feature.
+cp config.example.toml config.toml
+cp .env.example .env
 
-Topicability is a post-ranking presentation gate. A low-specificity release fallback moves to **Release Watch**, preserving its original score and evidence while allowing the next actionable candidate into the main list. It can remain in the main recommendations only when it has multiple independent source families or already meets an existing configured `strong` Interest condition. Topicability never modifies Freshness, Interest, Evidence Strength, or Discovery Priority.
+uv sync
+uv run youtube-trend-radar doctor
+uv run youtube-trend-radar scan
+```
 
-## YouTube evidence
+Useful variants:
 
-For each top candidate, V1 generates up to two event-specific searches and retrieves supported recent video metadata. Release searches come from the primary and alternative video angles rather than the raw repository/version title. GitHub `owner/repository` syntax and generic tutorial modifiers are not used for release intent. When notes contain no meaningful change information, the report uses a version-based release query and labels its viewer intent `low` specificity.
+```bash
+# Run discovery without YouTube API requests.
+uv run youtube-trend-radar scan --no-youtube
 
-High-specificity angles are compressed into short, human-like search intents by retaining the product plus the smallest grounded subject/object terms. Filler verbs and release-note prose are removed; distinctive technical nouns remain. Versions are omitted for sufficiently specific feature phrases and retained for ambiguous or version-only intent.
+# Request at most five Top Opportunities. The floor may return fewer.
+uv run youtube-trend-radar scan --top 5
 
-The report shows the intent basis and specificity, exact YouTube searches, manual search links, titles, channels, dates, durations, and available public statistics. Search requests use supported YouTube controls: `type=video`, `order=relevance`, a configurable recent `publishedAfter` window, and `relevanceLanguage=en` by default. The returned videos remain in YouTube's order and their content is not altered.
+# Use a configuration outside the repository root.
+uv run youtube-trend-radar scan --config path/to/config.toml
+```
 
-Optional deterministic title/channel annotations can label each returned item as `strong intent match`, `weak intent match`, or `unrelated`. They are additive client analysis: they never filter or reorder YouTube results and are clearly identified as not supplied by YouTube. This feature is disabled by default. Enable `youtube.enable_local_relevance_annotations` only after accepting and complying with YouTube's applicable derived-metrics amendment; the stronger request parameters do not require annotations to be enabled.
+Every scan writes uniquely named Markdown and JSON reports under `reports/`, plus local `latest.md` and `latest.json` pointers. SQLite observations and HTTP cache records live under `data/`. These paths, `.env`, and `config.toml` are intentionally ignored by Git.
 
-YouTube evidence is never included in Discovery Priority. V1 does not calculate crowding, creator quality, views per hour, Shorts classification, or whether an intent is fully served. If the API key is absent, ranking still works and the report provides manual search links.
+## Credentials
 
-YouTube search requests are quota-expensive. The default configuration caps them at 20 per scan and caches results for six hours.
+Copy `.env.example` to `.env` and set only the credentials you want to use:
 
-## Tests
+```dotenv
+GITHUB_TOKEN=
+HF_TOKEN=
+YOUTUBE_API_KEY=
+```
+
+- **`GITHUB_TOKEN`** — optional but strongly recommended. Without it, GitHub uses anonymous public API access with substantially lower rate limits; GitHub providers degrade independently if that quota is exhausted.
+- **`HF_TOKEN`** — optional for public models and Spaces. It can improve authenticated access but is not required for normal public discovery.
+- **`YOUTUBE_API_KEY`** — optional. Without it, discovery and ranking still work and reports provide manual YouTube search links, but no live YouTube video metadata is retrieved.
+
+Never commit `.env`, credentials, private reports, or local databases. The CLI suppresses verbose HTTP logging that could otherwise expose query-string credentials, and cached URLs redact sensitive parameters.
+
+## Example output
+
+The CLI prints a compact completion summary and paths to the full evidence-backed reports:
+
+```text
+$ uv run youtube-trend-radar scan
+Scan a1b2c3d4e5: complete; 6 recommendations; 3 release watch; 2 community watch
+Markdown: ./reports/scan-...md
+JSON: ./reports/scan-...json
+```
+
+An abbreviated generated report looks like:
+
+```text
+Top Opportunities — 6 found
+
+1. Codex Adds Background Agent Controls
+   Discovery Priority: 84.20
+   Freshness: 91.10
+   Interest: strong
+
+Release Watch
+Community Watch
+```
+
+The example is illustrative and static; the repository does not commit a large live API report.
+
+## First run and repeated runs
+
+The radar never invents historical momentum.
+
+On a repository or story's first observation, the report shows current aggregates and explicitly marks observed growth as unavailable. Repeated scans allow SQLite to measure changes since tracking began, including:
+
+- GitHub stars at first observation, current stars, observed delta, and duration.
+- Hacker News point/comment change over the observation window.
+- Hugging Face metric changes where supported.
+
+These are **observed changes while your radar was running**, not reconstructed historical growth.
+
+## YouTube evidence and limitations
+
+For each promoted candidate, V1 generates up to two compact event-specific searches and retrieves supported recent video metadata. Search requests use `type=video`, relevance ordering, an English relevance-language preference, and a configurable publication window.
+
+YouTube search can still return noisy or loosely related videos. V1 preserves YouTube-returned content and order for manual inspection and deliberately avoids an expanding list of negative keywords. It does not silently filter results or calculate a default relevance ratio, crowding score, views-per-hour metric, creator tier, or YouTube-derived Opportunity Score.
+
+Optional deterministic title/channel annotations exist behind `youtube.enable_local_relevance_annotations`, disabled by default. Enable them only after reviewing and complying with YouTube's applicable derived-metrics terms. See the [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies), [`search.list` documentation](https://developers.google.com/youtube/v3/docs/search/list), and [derived metrics policy](https://developers.google.com/youtube/terms/derived-metrics-policy).
+
+## Configuration
+
+`config.example.toml` is a runnable, credential-free starting point. Copy it to `config.toml` before running the CLI. It controls:
+
+- Official feeds, watched repositories, and GitHub exploration queries.
+- Provider result bounds, lookback windows, caching, and retries.
+- Entity aliases and developer-channel relevance terms.
+- Deduplication anchors and release-topic extraction terms.
+- Eligibility, interest, English-orientation, stagnation, and main-list thresholds.
+- Ranking weights and YouTube request budgets.
+
+Thresholds are deliberately external to code so real scan results can inform later tuning. Reports persist the effective values and configuration fingerprint.
+
+## Architecture
+
+The project is one Python package and one CLI:
+
+```text
+provider modules (concurrent, failure-isolated)
+    → normalized SourceItem records
+    → conservative entity resolution and event clustering
+    → deterministic scoring and presentation gates
+    → optional YouTube evidence
+    → Markdown + JSON reports
+
+SQLite
+    ↳ source observations
+    ↳ aggregate-change history
+    ↳ HTTP cache
+    ↳ reproducible scan records
+```
+
+There are no microservices, queues, cloud dependencies, vector databases, scraping services, or mandatory AI APIs.
+
+## Development
+
+Install the project and credential-free test dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+Run the checks used for release preparation:
 
 ```bash
 uv run pytest
+uv run youtube-trend-radar --help
+uv run youtube-trend-radar doctor
+uv build
 ```
 
-The default suite uses fixtures and mocked HTTP responses; it requires no network or secrets. Live validation is performed explicitly with `doctor` and `scan`.
+Tests use fixtures and mocked HTTP responses; they do not require GitHub, Hugging Face, or YouTube credentials. `doctor` is a live connectivity check and may warn about optional missing credentials.
 
-## Source attribution and API policies
+See [CONTRIBUTING.md](CONTRIBUTING.md) before changing provider behavior, eligibility, or scoring.
 
-- [GitHub REST API documentation](https://docs.github.com/en/rest)
-- [Hacker News API documentation](https://github.com/HackerNews/API)
-- [Hugging Face Hub API documentation](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api)
-- [YouTube Data API `search.list` documentation](https://developers.google.com/youtube/v3/docs/search/list)
-- [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies)
-- [YouTube derived metrics policy](https://developers.google.com/youtube/terms/derived-metrics-policy)
-- Individual feed names and source links are retained in every report.
+## V1 limitations
 
-Use of each API remains subject to its terms, quotas, attribution requirements, and policy changes. The project uses supported APIs and feeds and does not scrape YouTube or generic changelog pages.
+- Deterministic heuristics require calibration against real use; they are not learned predictions.
+- No runtime LLM, semantic embedding model, or virality prediction is used.
+- Growth is measured only after local tracking begins.
+- Provider availability, API quotas, upstream schemas, and feed quality constrain results.
+- Presentation is English-oriented using a transparent Latin-script proxy, not full language identification.
+- Entity resolution and deduplication are intentionally conservative, so occasional duplicates are preferred over incorrect merges.
+- YouTube competition remains a manual judgment.
+- No dashboard, alerts, historical backfill, Reddit, X/Twitter, Google Trends, or paid trend provider is included.
 
-## Known V1 limitations
+## Source APIs and attribution
 
-- Ranking thresholds are useful starting heuristics, not calibrated predictions.
-- The default main-list Freshness floor of `40` is a configurable presentation heuristic, not a claim that older topics have no value.
-- YouTube competition requires manual interpretation.
-- YouTube can still return weak or unrelated evidence despite precise queries; local relevance labels are policy-gated and disabled by default.
-- V1 deliberately does not maintain an expanding list of negative search keywords. YouTube evidence remains a manual-review surface when fuzzy retrieval returns noise.
-- Official sources without stable feeds or APIs are absent unless represented through official GitHub releases.
-- Hugging Face trending position is treated as opaque supporting metadata.
-- First scans cannot report observed growth; later scans can.
-- Entity resolution and event clustering are deterministic and intentionally conservative.
-- The English-orientation gate measures Latin-script letter share; it cannot distinguish English from other Latin-script languages.
-- No dashboard, notifications, LLM clustering, historical backfill, or generic web scraping is included.
+- [GitHub REST API](https://docs.github.com/en/rest)
+- [Hacker News API](https://github.com/HackerNews/API)
+- [Hugging Face Hub API](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api)
+- [YouTube Data API](https://developers.google.com/youtube/v3)
 
-See [PLAN.md](PLAN.md) for the approved V1 product and architecture decisions.
+Individual source names and links are retained in generated reports. Use of every API remains subject to its terms, quotas, attribution requirements, and future policy changes.
 
-## License
+## Project policies
 
-MIT
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security reports: [SECURITY.md](SECURITY.md)
+- License: [MIT](LICENSE)

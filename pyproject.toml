@@ -5,11 +5,21 @@ build-backend = "hatchling.build"
 [project]
 name = "youtube-trend-radar"
 version = "0.1.0"
-description = "Find fresh AI and developer-tool YouTube topic opportunities."
+description = "An event-first radar for fresh AI and developer-tool YouTube topics."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "Dharmendra Sharma" }]
+keywords = ["youtube", "ai", "developer-tools", "trend-discovery", "content-research"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+]
 dependencies = [
   "feedparser>=6.0.11,<7",
   "httpx>=0.27,<1",
@@ -26,10 +36,14 @@ dev = [
 [project.scripts]
 youtube-trend-radar = "youtube_trend_radar.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/dharmendrathinks/youtube-trend-radar"
+Repository = "https://github.com/dharmendrathinks/youtube-trend-radar"
+Issues = "https://github.com/dharmendrathinks/youtube-trend-radar/issues"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/youtube_trend_radar"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
-
