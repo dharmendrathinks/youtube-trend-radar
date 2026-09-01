@@ -11,6 +11,7 @@ from youtube_trend_radar.http import CachedHttpClient
 from youtube_trend_radar.models import Candidate, ProviderResult
 from youtube_trend_radar.providers.common import combined_status, oldest_stale_at
 from youtube_trend_radar.topics import (
+    QUERY_STOPWORDS,
     WORD_RE,
     extract_release_topic,
     product_name,
@@ -23,13 +24,6 @@ from youtube_trend_radar.utils import clean_text, compact_error
 
 SEARCH_API = "https://www.googleapis.com/youtube/v3/search"
 VIDEOS_API = "https://www.googleapis.com/youtube/v3/videos"
-QUERY_STOPWORDS = {
-    "a", "an", "and", "are", "as", "at", "be", "been", "being", "by", "can",
-    "for", "from", "has", "have", "in", "including", "into", "is", "it", "its",
-    "new", "now", "of", "on", "or", "that", "the", "their", "through", "to",
-    "was", "were", "when", "with", "within", "fixed", "fixes", "added", "adds",
-    "support", "supports", "updated", "update", "changed", "changes",
-}
 
 
 def build_viewer_intent(candidate: Candidate, limit: int = 2) -> dict[str, Any]:

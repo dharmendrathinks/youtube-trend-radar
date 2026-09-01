@@ -424,6 +424,8 @@ After scoring, topicability partitions presentation without modifying the underl
 
 Validate only the top ten candidates by default. Generate no more than two searches per candidate. For release events, construct viewer intent from the extracted primary and alternative angles rather than the raw repository/version title. Do not expose GitHub `owner/repository` syntax or add generic `tutorial` modifiers to release/update/news queries. If the metadata contains no defensible meaningful change, retain a version-based release query and explicitly label it as low-specificity intent.
 
+Compress high-specificity angle queries to the product plus the minimum grounded technical subject/object terms, normally three to seven words total. Remove filler verbs and descriptive changelog prose without introducing synonyms or unsupported capabilities. Omit versions when the feature terms are distinctive; retain them for ambiguous or fallback intent.
+
 For non-release events and projects, use the human-readable event or project identity plus its distinctive terms. Avoid a broad product-only query whenever the event supplies a more precise intent.
 
 Defaults:

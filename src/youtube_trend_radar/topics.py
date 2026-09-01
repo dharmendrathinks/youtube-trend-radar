@@ -111,6 +111,42 @@ QUERY_STOPWORDS = {
     "was", "were", "when", "with", "within", "fixed", "fixes", "added", "adds",
     "support", "supports", "updated", "update", "changed", "changes",
 }
+QUERY_FILLER_TERMS = QUERY_STOPWORDS | {
+    "action",
+    "actions",
+    "across",
+    "banner",
+    "banners",
+    "checking",
+    "contain",
+    "draft",
+    "drafts",
+    "highlighted",
+    "individual",
+    "managing",
+    "match",
+    "matches",
+    "offer",
+    "offers",
+    "progress",
+    "resume",
+    "resumes",
+    "run",
+    "running",
+    "session",
+    "sessions",
+    "setting",
+    "settings",
+    "usage",
+}
+QUERY_VERB_RE = re.compile(
+    r"\b(?:supports?|offers?|adds?|introduces?|enables?|allows?|shows?|provides?|configures?|can)\b",
+    flags=re.I,
+)
+QUERY_NORMAL_FORMS = {
+    "searches": "search",
+    "searching": "search",
+}
 
 
 def release_item(candidate: Candidate) -> SourceItem | None:
@@ -174,22 +210,47 @@ def query_text(product: str, *parts: str | None) -> str:
     return clean_text(" ".join(words), limit=100)
 
 
-def query_phrase(text: str) -> str | None:
-    cleaned = ISSUE_RE.sub("", text.strip().lstrip("-* "))
-    cleaned = re.sub(r"[`*_#]", "", cleaned)
-    cleaned = re.sub(r"https?://\S+", "", cleaned)
-    tokens: list[str] = []
+def _query_tokens(text: str, excluded: set[str] | None = None) -> list[str]:
+    text = re.sub(r"(?<=[A-Za-z])-(?=[A-Za-z])", " ", text)
+    values: list[str] = []
     seen: set[str] = set()
-    for token in WORD_RE.findall(cleaned):
-        value = token.strip("./").replace("_", " ")
-        lower = value.lower()
-        if not value or lower in QUERY_STOPWORDS or lower in seen or lower.isdigit():
-            continue
-        seen.add(lower)
-        tokens.append(value)
-        if len(tokens) == 8:
+    for token in WORD_RE.findall(text):
+        for value in token.strip("./").replace("_", " ").split():
+            lower = value.lower()
+            value = QUERY_NORMAL_FORMS.get(lower, value)
+            lower = value.lower()
+            if (
+                not value
+                or lower in QUERY_FILLER_TERMS
+                or lower in (excluded or set())
+                or lower in seen
+            ):
+                continue
+            seen.add(lower)
+            values.append(value)
+    return values
+
+
+def query_phrase(text: str, product: str | None = None) -> str | None:
+    cleaned = ISSUE_RE.sub("", text.strip().lstrip("-* "))
+    cleaned = re.sub(r"[`*#]", "", cleaned).replace("_", " ")
+    cleaned = re.sub(r"https?://\S+", "", cleaned)
+    excluded = {value.lower() for value in _query_tokens(product or "")}
+    verb = QUERY_VERB_RE.search(cleaned)
+    if not verb:
+        tokens = _query_tokens(cleaned, excluded)
+        return " ".join(tokens[: max(2, 7 - len(excluded))]) or None
+
+    subject = _query_tokens(cleaned[: verb.start()], excluded)[:3]
+    object_tokens: list[str] = []
+    for clause in re.split(r"[,;]", cleaned[verb.end() :]):
+        values = _query_tokens(clause, excluded)
+        if values:
+            object_tokens = values
             break
-    return " ".join(tokens) if len(tokens) >= 3 else None
+    available = max(1, 7 - len(excluded) - len(subject))
+    tokens = [*subject, *object_tokens[:available]]
+    return " ".join(tokens) or None
 
 
 def _configured_terms(config: dict[str, Any], key: str, default: list[str]) -> list[str]:
@@ -274,13 +335,20 @@ def _angle_title(product: str, evidence: str) -> str:
 
 
 def _angle(product: str, release: SourceItem, bullet: dict[str, Any], rule: str) -> dict[str, Any]:
-    phrase = query_phrase(str(bullet["text"]))
+    phrase = query_phrase(str(bullet["text"]), product)
     evidence = {"section": bullet.get("section"), "text": bullet["text"]}
     identity = sha256(f"{release.external_id}|{bullet['position']}|{bullet['text']}".encode()).hexdigest()[:12]
+    phrase_word_count = len(WORD_RE.findall(phrase or ""))
+    version = str(release.metrics.get("release_tag") or "").strip()
+    version = re.sub(r"^(?:rust-)?v(?=\d)", "", version, flags=re.I) or None
     return {
         "angle_id": identity,
         "title": _angle_title(product, str(bullet["text"])),
-        "query": query_text(product, phrase or _evidence_text(str(bullet["text"]))),
+        "query": query_text(
+            product,
+            version if phrase_word_count < 2 else None,
+            phrase or _evidence_text(str(bullet["text"])),
+        ),
         "evidence": evidence,
         "selection_rule": rule,
     }

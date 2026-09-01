@@ -112,11 +112,79 @@ def test_release_notes_create_feature_specific_queries() -> None:
     )
 
     assert intent["specificity"] == "high"
-    assert len(intent["queries"]) == 2
-    assert "Vim mode" in intent["queries"][0]
-    assert "MCP tools" in intent["queries"][1]
+    assert intent["queries"] == [
+        "Codex Vim mode search",
+        "Codex MCP tools output token limit",
+    ]
     assert all("1.2.3" not in query for query in intent["queries"])
     assert all(query != "Codex" for query in intent["queries"])
+
+
+def test_verbose_rate_limit_angle_becomes_short_natural_query() -> None:
+    intent = build_viewer_intent(
+        release_candidate(
+            summary=(
+                "## New Features - Rate-limit banners offer actions for checking usage, "
+                "managing credits, resetting limits, and managing plans. (#200)"
+            )
+        )
+    )
+
+    assert intent["queries"] == ["Codex Rate limit credits"]
+
+
+def test_compact_query_keeps_product_and_grounded_technical_terms() -> None:
+    evidence = "Vim mode supports searches within drafts, highlighted matches, and repeat navigation."
+    intent = build_viewer_intent(release_candidate(summary=f"## New Features - {evidence}"))
+    query = intent["queries"][0]
+
+    assert query == "Codex Vim mode search"
+    assert all(term.lower() in f"Codex {evidence}".lower() for term in query.split())
+
+
+def test_compact_query_removes_release_note_filler() -> None:
+    intent = build_viewer_intent(
+        release_candidate(
+            summary=(
+                "## New Features - Rate-limit banners offer actions for checking usage, "
+                "managing credits, including highlighted controls."
+            )
+        )
+    )
+    query = intent["queries"][0].lower()
+
+    for filler in ("banners", "offers", "actions", "checking", "usage", "managing", "including", "highlighted"):
+        assert filler not in query
+
+
+def test_version_is_kept_when_feature_intent_is_too_ambiguous() -> None:
+    intent = build_viewer_intent(release_candidate(summary="## New Features - Adds API."))
+
+    assert intent["queries"] == ["Codex 1.2.3 API"]
+
+
+def test_query_count_respects_requested_limit() -> None:
+    value = release_candidate(
+        summary=(
+            "## New Features - Vim mode supports search navigation. "
+            "- MCP tools support output token limits. - Adds background agents."
+        )
+    )
+
+    assert len(build_viewer_intent(value, limit=1)["queries"]) == 1
+    assert len(build_viewer_intent(value, limit=2)["queries"]) == 2
+
+
+def test_query_generation_does_not_change_priority_or_candidate_order() -> None:
+    first = release_candidate(summary="## New Features - Vim mode supports search navigation.")
+    second = candidate()
+    values = [first, second]
+    before = [(value.fingerprint, value.discovery_priority) for value in values]
+
+    for value in values:
+        build_viewer_intent(value)
+
+    assert [(value.fingerprint, value.discovery_priority) for value in values] == before
 
 
 def test_repository_identifier_does_not_leak_into_release_queries() -> None:
