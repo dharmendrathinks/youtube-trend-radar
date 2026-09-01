@@ -1,5 +1,9 @@
 # YouTube Trend Radar
 
+[![CI](https://github.com/dharmendrathinks/youtube-trend-radar/actions/workflows/ci.yml/badge.svg)](https://github.com/dharmendrathinks/youtube-trend-radar/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+
 A developer-focused, event-first radar for finding fresh AI/developer video topics before they become obvious everywhere.
 
 `youtube-trend-radar` watches upstream ecosystem events, ranks the ones worth investigating, and attaches recent YouTube evidence for manual coverage review. It is deterministic, runs without an LLM, and does **not** claim to predict virality.
@@ -17,11 +21,59 @@ Official releases/changelogs + GitHub watchlist/exploration
 
 YouTube evidence never affects Discovery Priority. V1 does not calculate a default YouTube crowding or opportunity score.
 
+## Output preview
+
+```text
+Top Opportunities — 6 found
+
+1. Codex: Vim-mode search/navigation
+   Priority: 89.2 · Interest: strong
+
+2. Claude Code Opus 5 Auto Mode
+   Priority: 68.5 · Interest: strong
+
+Release Watch: 5
+Community Watch: 2
+```
+
+[See how scoring works ↓](#discovery-priority)
+
 ## Why this exists
 
 Most trend tools become useful after attention has already accumulated. For a creator covering coding agents, AI IDEs, MCP, local AI, developer models, SDKs, and open-source tools, that can be too late.
 
 This project starts farther upstream. A new official release can matter before it trends; early GitHub, Hacker News, or Hugging Face activity can strengthen the case; YouTube then helps the operator inspect whether the exact viewer intent is already being served.
+
+## Quick start
+
+Requirements: Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/dharmendrathinks/youtube-trend-radar.git
+cd youtube-trend-radar
+
+cp config.example.toml config.toml
+cp .env.example .env
+
+uv sync
+uv run youtube-trend-radar doctor
+uv run youtube-trend-radar scan
+```
+
+Useful variants:
+
+```bash
+# Run discovery without YouTube API requests.
+uv run youtube-trend-radar scan --no-youtube
+
+# Request at most five Top Opportunities. The floor may return fewer.
+uv run youtube-trend-radar scan --top 5
+
+# Use a configuration outside the repository root.
+uv run youtube-trend-radar scan --config path/to/config.toml
+```
+
+Every scan writes uniquely named Markdown and JSON reports under `reports/`, plus local `latest.md` and `latest.json` pointers. SQLite observations and HTTP cache records live under `data/`. These paths, `.env`, and `config.toml` are intentionally ignored by Git.
 
 ## What it watches
 
@@ -62,37 +114,6 @@ Discovery Priority = 0.60 × Freshness
 
 Discovery Priority orders discovery evidence; it is not a probability, virality forecast, or YouTube opportunity score. A separate presentation floor requires sufficient freshness plus moderate/strong interest, independent confirmation, or authoritative actionable evidence before a candidate enters Top Opportunities. All thresholds live in `config.toml` and are starting heuristics, not scientifically calibrated predictions.
 
-## Quick start
-
-Requirements: Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/).
-
-```bash
-git clone https://github.com/dharmendrathinks/youtube-trend-radar.git
-cd youtube-trend-radar
-
-cp config.example.toml config.toml
-cp .env.example .env
-
-uv sync
-uv run youtube-trend-radar doctor
-uv run youtube-trend-radar scan
-```
-
-Useful variants:
-
-```bash
-# Run discovery without YouTube API requests.
-uv run youtube-trend-radar scan --no-youtube
-
-# Request at most five Top Opportunities. The floor may return fewer.
-uv run youtube-trend-radar scan --top 5
-
-# Use a configuration outside the repository root.
-uv run youtube-trend-radar scan --config path/to/config.toml
-```
-
-Every scan writes uniquely named Markdown and JSON reports under `reports/`, plus local `latest.md` and `latest.json` pointers. SQLite observations and HTTP cache records live under `data/`. These paths, `.env`, and `config.toml` are intentionally ignored by Git.
-
 ## Credentials
 
 Copy `.env.example` to `.env` and set only the credentials you want to use:
@@ -108,33 +129,6 @@ YOUTUBE_API_KEY=
 - **`YOUTUBE_API_KEY`** — optional. Without it, discovery and ranking still work and reports provide manual YouTube search links, but no live YouTube video metadata is retrieved.
 
 Never commit `.env`, credentials, private reports, or local databases. The CLI suppresses verbose HTTP logging that could otherwise expose query-string credentials, and cached URLs redact sensitive parameters.
-
-## Example output
-
-The CLI prints a compact completion summary and paths to the full evidence-backed reports:
-
-```text
-$ uv run youtube-trend-radar scan
-Scan a1b2c3d4e5: complete; 6 recommendations; 3 release watch; 2 community watch
-Markdown: ./reports/scan-...md
-JSON: ./reports/scan-...json
-```
-
-An abbreviated generated report looks like:
-
-```text
-Top Opportunities — 6 found
-
-1. Codex Adds Background Agent Controls
-   Discovery Priority: 84.20
-   Freshness: 91.10
-   Interest: strong
-
-Release Watch
-Community Watch
-```
-
-The example is illustrative and static; the repository does not commit a large live API report.
 
 ## First run and repeated runs
 
