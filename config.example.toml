@@ -124,6 +124,11 @@ developer_terms = [
   "automation", "open source", "open-source", "local", "server", "library", "framework",
   "repository", "github", "testing", "review",
 ]
+huggingface_terms = [
+  "code", "coder", "agent", "tool", "mcp", "text-generation", "text-to-image",
+  "image-to-image", "image-text-to-text", "video", "audio", "speech", "inference",
+  "local", "gguf", "transformers",
+]
 exclude_terms = ["cryptocurrency price", "sports betting"]
 
 [categories]
@@ -133,4 +138,3 @@ mcp = ["model context protocol", "mcp server", "mcp tool"]
 local_ai = ["local ai", "local llm", "ollama", "lm studio", "inference"]
 models = ["model release", "open model", "language model", "image model", "video model", "audio model"]
 developer_tools = ["sdk", "api", "cli", "developer tool", "automation", "code review", "testing"]
-
